@@ -1,0 +1,27 @@
+/* Shared module control treatment. Never applied to transparent overlay pages. */
+:root{color-scheme:dark;font-family:Inter,"Segoe UI","Noto Sans SC Variable","Microsoft YaHei",system-ui,sans-serif;color:#ececec;background:#212121;--accent:#ececec;--bg:#212121;--panel:#262626;--line:#424242;--muted:#aaa}
+body{background:#212121;color:#ececec;font-family:inherit}
+main{padding:24px;max-width:1680px}
+header,.topbar{background:transparent;border-color:#414141;box-shadow:none}
+h1{font-size:26px;font-weight:600;letter-spacing:-.5px}h2{font-size:17px;font-weight:600}h3{font-size:14px;font-weight:600}
+button,.button,a.ghost{background:#303030;color:#ececec;border:1px solid #4b4b4b;border-radius:999px;min-height:36px;padding:9px 14px;font:500 12px/1.5 inherit;box-shadow:none;cursor:pointer}
+button:hover:not(:disabled){background:#3b3b3b;border-color:#888}
+button.primary,.primary{background:#ececec;color:#212121;border-color:#ececec}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,a:focus-visible{outline:2px solid #ccc;outline-offset:3px}
+input,select,textarea{background:#212121;color:#ececec;border:1px solid #4c4c4c;border-radius:9px;padding:9px 11px;font:inherit;box-shadow:none}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#bbb;box-shadow:0 0 0 2px #ffffff10}
+input[type=checkbox],input[type=range]{accent-color:#dedede}
+article,.panel,.transport,.card,.setup-panel{background:#262626;border:1px solid #3e3e3e;border-radius:16px;box-shadow:none}
+label{color:#bdbdbd;font-weight:500}small,.foot,.hint{color:#aaa;line-height:1.75}
+a{color:#ddd}.preview{background:#181818;border:1px solid #444;border-radius:14px}.preview small{padding:12px}
+#clock{font:550 54px/1.3 "Segoe UI",sans-serif;color:#ececec;letter-spacing:-2px}
+#connection,#module-status{color:#bcbcbc}#notice{color:#d4e6db}.live-pill{background:#273b31;color:#b8e7cc;border-color:#405d4b;border-radius:999px}
+.brand-mark{background:#ececec;color:#212121;border-radius:12px;transform:none}
+.setup-grid,.grid{gap:18px}summary{cursor:pointer;padding:5px 0}
+[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+.channel-team-logo{width:32px;height:32px;object-fit:contain;flex:0 0 32px}
+
+body,button,input,select,textarea{font-family:Inter,"Noto Sans SC Variable","Microsoft YaHei",sans-serif}

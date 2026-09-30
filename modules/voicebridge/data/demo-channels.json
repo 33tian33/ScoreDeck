@@ -1,0 +1,50 @@
+{
+  "channels": [
+    {
+      "id": "channel-alpha",
+      "name": "主队战术频道",
+      "shortName": "ALPHA",
+      "color": "#50e3c2",
+      "serverLabel": "本地连接 01",
+      "audioUrl": "/demo-channel-alpha.wav",
+      "utterances": [
+        {"id":"a001","speakerId":"a-p1","speakerName":"北风","startMs":500,"endMs":1800,"text":"我看到对面两个人在A点。","stable":true},
+        {"id":"a002","speakerId":"a-p2","speakerName":"零度","startMs":1950,"endMs":3200,"text":"别正面打，我们从B点绕后。","stable":true},
+        {"id":"a003","speakerId":"a-p3","speakerName":"小满","startMs":3400,"endMs":4500,"text":"我先放烟，等我信号。","stable":true},
+        {"id":"a004","speakerId":"a-p4","speakerName":"灯塔","startMs":6300,"endMs":7400,"text":"烟起来了，现在进。","stable":true},
+        {"id":"a005","speakerId":"a-p1","speakerName":"北风","startMs":7500,"endMs":8800,"text":"对面回头了，我控住一个。","stable":true},
+        {"id":"a006","speakerId":"a-p5","speakerName":"石榴","startMs":8900,"endMs":10400,"text":"第二个在箱子后面，已经残血。","stable":true},
+        {"id":"a007","speakerId":"a-p2","speakerName":"零度","startMs":10500,"endMs":11600,"text":"收掉了，A点现在空了。","stable":true},
+        {"id":"a008","speakerId":"a-p3","speakerName":"小满","startMs":13800,"endMs":14900,"text":"先别追，检查一下资源。","stable":true},
+        {"id":"a009","speakerId":"a-p5","speakerName":"石榴","startMs":15000,"endMs":16200,"text":"我的大招还有二十秒。","stable":true},
+        {"id":"a010","speakerId":"a-p1","speakerName":"北风","startMs":16400,"endMs":17700,"text":"那就守住B点等下一波。","stable":true},
+        {"id":"a011","speakerId":"a-p4","speakerName":"灯塔","startMs":19800,"endMs":21100,"text":"他们五个人都从中路过来了。","stable":true},
+        {"id":"a012","speakerId":"a-p2","speakerName":"零度","startMs":21200,"endMs":22600,"text":"我们后撤，保住这一分。","stable":true},
+        {"id":"a013","speakerId":"a-p3","speakerName":"小满","startMs":22800,"endMs":24200,"text":"收到，我断后。","stable":true}
+      ]
+    },
+    {
+      "id": "channel-bravo",
+      "name": "二队观察频道",
+      "shortName": "BRAVO",
+      "color": "#60a5fa",
+      "serverLabel": "本地连接 02",
+      "audioUrl": "/demo-channel-bravo.wav",
+      "utterances": [
+        {"id":"b001","speakerId":"b-p1","speakerName":"海盐","startMs":700,"endMs":1900,"text":"我们先拿载具，不要在出生点停。","stable":true},
+        {"id":"b002","speakerId":"b-p2","speakerName":"阿澈","startMs":2050,"endMs":3200,"text":"车在东边仓库，我过去开。","stable":true},
+        {"id":"b003","speakerId":"b-p3","speakerName":"青禾","startMs":3350,"endMs":4450,"text":"我标了安全路线。","stable":true},
+        {"id":"b004","speakerId":"b-p4","speakerName":"九川","startMs":6200,"endMs":7500,"text":"前面桥口有人架枪。","stable":true},
+        {"id":"b005","speakerId":"b-p5","speakerName":"薄荷","startMs":7650,"endMs":8900,"text":"别停车，直接冲过去。","stable":true},
+        {"id":"b006","speakerId":"b-p2","speakerName":"阿澈","startMs":9050,"endMs":10100,"text":"轮胎被打了一个。","stable":true},
+        {"id":"b007","speakerId":"b-p1","speakerName":"海盐","startMs":10200,"endMs":11350,"text":"已经过桥，全部下车补状态。","stable":true},
+        {"id":"b008","speakerId":"b-p3","speakerName":"青禾","startMs":13400,"endMs":14600,"text":"圈刷到北边山顶了。","stable":true},
+        {"id":"b009","speakerId":"b-p5","speakerName":"薄荷","startMs":14750,"endMs":16000,"text":"药品够，我们现在转移。","stable":true},
+        {"id":"b010","speakerId":"b-p4","speakerName":"九川","startMs":16200,"endMs":17500,"text":"我负责看后方。","stable":true},
+        {"id":"b011","speakerId":"b-p2","speakerName":"阿澈","startMs":19600,"endMs":20800,"text":"山顶队伍正在和别人交火。","stable":true},
+        {"id":"b012","speakerId":"b-p1","speakerName":"海盐","startMs":20950,"endMs":22300,"text":"等他们打完，我们再进场。","stable":true},
+        {"id":"b013","speakerId":"b-p3","speakerName":"青禾","startMs":22500,"endMs":23700,"text":"明白，我继续报点。","stable":true}
+      ]
+    }
+  ]
+}

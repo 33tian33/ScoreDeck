@@ -1,0 +1,6 @@
+html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent!important}
+#overlay{opacity:0;visibility:hidden;transform:translateX(440px)}
+
+.audio-in-team-row{display:flex;align-items:center;gap:12px}.audio-in-team-row .audio-in-team{min-width:0}.audio-in-team-row img{width:38px;height:38px;object-fit:contain;flex:0 0 38px}.audio-in-team-row img[hidden]{display:none}
+
+.audio-in-team-row{margin-top:12px}.audio-in-team-row .audio-in-team{margin-top:0}

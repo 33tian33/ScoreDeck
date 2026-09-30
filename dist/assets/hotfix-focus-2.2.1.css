@@ -1,0 +1,94 @@
+/* Two-match focus reuses the exact four-match card geometry and typography. */
+.focus-standalone-grid.count-2 {
+  height: 100%;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .62vw;
+}
+.focus-standalone-grid.count-2 .focus-standalone-card {
+  grid-template-rows: 32vh minmax(0, 1fr);
+}
+.focus-standalone-grid.count-2 .focus-standalone-card:first-child {
+  grid-column: 2;
+}
+.focus-standalone-grid.count-2 .focus-standalone-matchup {
+  padding: .82vw;
+}
+.focus-standalone-grid.count-2 .focus-standalone-matchup .knockout-focus-match {
+  height: 100%;
+  padding: .76vw;
+}
+.focus-standalone-grid.count-2 .focus-match-stage {
+  margin-bottom: 1.15vh;
+  font-size: .76vw;
+}
+.focus-standalone-grid.count-2 .focus-match-team {
+  height: 6.4vh;
+  grid-template-columns: 3.2vw minmax(0, 1fr) auto;
+  gap: .65vw;
+}
+.focus-standalone-grid.count-2 .focus-match-team .team-avatar {
+  width: 2.65vw;
+  height: 2.65vw;
+  font-size: .72vw;
+}
+.focus-standalone-grid.count-2 .focus-match-team strong {
+  font-size: 1.38vw;
+  letter-spacing: .045em;
+}
+.focus-standalone-grid.count-2 .focus-match-team > b {
+  font-size: 1.68vw;
+}
+.focus-standalone-grid.count-2 .focus-map-scores {
+  gap: .55vw;
+  padding-top: 1.25vh;
+}
+.focus-standalone-grid.count-2 .focus-map-scores span {
+  font-size: .64vw;
+}
+.focus-standalone-grid.count-2 .focus-map-scores b {
+  font-size: .76vw;
+}
+.focus-standalone-grid.count-2 .focus-rosters {
+  padding: .65vw .76vw;
+}
+.focus-standalone-grid.count-2 .focus-roster-team {
+  grid-template-rows: 4.8vh minmax(0, 1fr);
+  padding: .38vw .16vw;
+}
+.focus-standalone-grid.count-2 .focus-roster-heading {
+  gap: .46vw;
+}
+.focus-standalone-grid.count-2 .focus-roster-heading .team-avatar {
+  width: 2.38vw;
+  height: 2.38vw;
+  font-size: .62vw;
+}
+.focus-standalone-grid.count-2 .focus-roster-heading strong {
+  font-size: .98vw;
+}
+.focus-standalone-grid.count-2 .focus-roster-heading small {
+  font-size: .58vw;
+}
+.focus-standalone-grid.count-2 .focus-roster-list > div {
+  min-height: 2.35vh;
+  grid-template-columns: 1.28vw 1.55vw minmax(0, 1fr) auto;
+  gap: .3vw;
+}
+.focus-standalone-grid.count-2 .focus-roster-list > div > b {
+  font-size: .56vw;
+}
+.focus-standalone-grid.count-2 .focus-roster-list .player-avatar {
+  width: 1.28vw;
+  height: 1.28vw;
+  font-size: .34vw;
+}
+.focus-standalone-grid.count-2 .focus-roster-list > div > span {
+  font-size: .88vw;
+  line-height: 1.1;
+}
+.focus-standalone-grid.count-2 .focus-roster-list > div > small {
+  min-width: 2.65vw;
+  font-size: .52vw;
+  line-height: 1.1;
+  letter-spacing: .02em;
+}

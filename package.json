@@ -1,0 +1,16 @@
+{
+  "name": "scoredeck-cs-broadcast",
+  "version": "2.18.5",
+  "private": true,
+  "description": "ScoreDeck CS 2.18.5 — Tournament and broadcast director tools",
+  "main": "desktop/main.cjs",
+  "type": "module",
+  "dependencies": {},
+  "scripts": {
+    "start": "node server/server.cjs",
+    "test": "node --test tests/*.cjs radarhud/tests/*.cjs",
+    "build:integrations": "node scripts/build-integrations.cjs",
+    "build:ui": "node scripts/build-integrations.cjs",
+    "test:flow": "node --test tests/tournament-flow.cjs tests/flow-api.cjs tests/flow-activation.cjs"
+  }
+}

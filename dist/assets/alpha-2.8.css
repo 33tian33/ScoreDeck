@@ -1,0 +1,14 @@
+.standings-scene .standings-row{grid-template-columns:76px minmax(260px,1fr) repeat(4,66px) 128px 96px 124px 90px!important}
+.third-place-columns .third-place-table .standings-row{grid-template-columns:40px 40px minmax(120px,1fr) repeat(4,32px) 66px 54px 70px 50px!important;gap:5px!important}
+.third-place-columns .third-place-table .standings-row.heading{font-size:15px!important}
+.third-place-columns .third-place-table .standings-row>span{min-width:0;font-size:20px}
+.third-place-columns .third-place-table .standings-row>span:nth-child(3) strong{font-size:22px!important}
+.sd-team-entrance-settings{margin:24px 0;padding:20px;border:1px solid #ffffff20;border-radius:12px;background:#ffffff03}
+.sd-team-entrance-settings h3{margin-top:0}
+.sd-team-entrance-settings .form-grid{margin:16px 0}
+.sd-ent-managed-avatar{width:38px;height:38px;object-fit:cover;display:block}
+.group-switcher.compact{flex-wrap:wrap}
+.editor-workspace{align-items:start}
+.team-list-panel .team-list{max-height:calc(100vh - 270px);overflow-y:auto}
+
+.team-form-panel .player-table{grid-template-columns:32px 108px minmax(130px,1fr) 120px 82px 80px!important}

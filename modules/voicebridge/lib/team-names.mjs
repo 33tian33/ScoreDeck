@@ -1,0 +1,2 @@
+export function validateTeamNames(data){const names={};for(const id of ['channel-alpha','channel-bravo']){const value=data?.[id];if(typeof value!=='string'||!value.trim()||Array.from(value.trim()).length>24||/[\u0000-\u001f\u007f]/.test(value))throw new Error('两队名称均需为1至24个字符，不含换行');names[id]=value.trim();}return names;}
+export function applyTeamNames(channels,names){for(const c of channels){if(!names[c.id])continue;c.name=names[c.id];c.shortName=names[c.id];for(const s of c.segments){s.channelName=c.name;}}}

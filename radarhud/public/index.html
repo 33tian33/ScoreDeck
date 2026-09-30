@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Radar HUD · Utility Trajectories</title>
+    <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/minimal-controls.css"></head>
+  <body>
+    <script>if(location.pathname === '/output' || new URLSearchParams(location.search).get('output') === '1') document.body.classList.add('clean-output');</script>
+    <svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs><filter id="broadcast-map" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="1 0 0 0 0  .8 .2 0 0 0  0 .12 .88 0 0  0 0 0 1 0"/></filter></defs></svg>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">RADAR HUD / 0.3.11</p>
+          <h1>道具轨迹</h1>
+        </div>
+        <div class="top-meta">
+          <div class="map-info">
+            <strong id="map-name">de_mirage</strong>
+            <span id="layer-name">SINGLE LAYER</span>
+          </div>
+          <div class="prop-count">
+            <b id="trajectory-count">0</b>
+            <span>PATHS</span>
+          </div>
+          <div class="connection" id="connection">
+            <span class="connection-dot"></span>
+            <span id="connection-text">等待 GSI</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="output-settings">
+        <a href="/output" target="_blank" rel="noopener">打开独立雷达输出</a>
+        <label for="map-layer">地图楼层 <select id="map-layer"><option value="all">全部层</option><option value="low">1层（下层）</option><option value="high">2层（上层）</option></select></label>
+        <small id="layer-help">双层地图可手动选择楼层，实时和回放均生效。</small>
+        <label><input id="show-players" type="checkbox">显示队员位置（CT 蓝 / T 棕，仅实时存活队员）</label>
+        <label><input id="show-background" data-text="background" type="checkbox">深蓝网格背景</label>
+        <p>输出文字（默认全部关闭）</p>
+        <div id="text-options"></div>
+        <small id="settings-status">控制面板的设置会同步至独立输出页与 OBS。</small>
+      </section>
+      <section class="radar-card">
+        <div class="radar-toolbar">
+          <span id="map-phase">WAITING</span>
+          <span id="round-info">ROUND -- · HALF 1</span>
+          <span id="frame-info">30 FPS · FRAME --</span>
+        </div>
+
+        <aside class="buy-filter"><h2>轨迹分类</h2><section class="buy-ct"><h3>CT</h3><label><input type="checkbox" id="CT-full" data-buy="CT-full" checked><span>全起</span></label><label><input type="checkbox" id="CT-half" data-buy="CT-half" checked><span>半起</span></label><label><input type="checkbox" id="CT-eco" data-buy="CT-eco" checked><span>ECO</span></label></section><section class="buy-t"><h3>T</h3><label><input type="checkbox" id="T-full" data-buy="T-full" checked><span>全起</span></label><label><input type="checkbox" id="T-half" data-buy="T-half" checked><span>半起</span></label><label><input type="checkbox" id="T-eco" data-buy="T-eco" checked><span>ECO</span></label></section><label class="unknown-buy"><input type="checkbox" id="show-unknown" checked><span>未分类 / 旧数据</span></label></aside><div class="radar-stage"><div class="stage-kicker">UTILITY TRAJECTORIES<span>ROUNDS ALIGNED AT START</span></div>
+          <img id="radar-image" class="radar-image" src="/assets/radar-0f6c4bb0.png" alt="CS2 radar" />
+          <svg id="radar-trajectories" class="radar-trajectories" viewBox="0 0 1024 1024" preserveAspectRatio="none" aria-label="Utility trajectories">
+            <g id="trajectory-paths"></g>
+          </svg>
+          <div id="radar-objects" class="radar-objects"></div>
+          <div id="radar-empty" class="radar-empty">
+            <strong>等待 CS2 GSI</strong>
+            <span>启动接收器后，轨迹会按半场持续累积</span>
+          </div>
+        </div>
+
+        <div class="broadcast-caption"><div id="buy-caption">ALL BUY TYPES · HALF 1</div><div id="map-caption">MIRAGE · CT + T UTILITY</div></div>
+        <div class="replay-controls" aria-label="轨迹同步回放控制">
+          <button id="replay-toggle" class="replay-button" type="button">进入回放</button>
+          <button id="replay-play" class="replay-button primary" type="button" disabled>▶ 播放</button>
+          <input id="replay-time" class="replay-time" type="range" min="0" max="0" step="33.333" value="0" disabled />
+          <span id="replay-time-label" class="replay-time-label">无回放数据</span>
+          <label class="fade-control" for="fade-delay">轨迹时间（0 隐藏）</label>
+          <input id="fade-delay" class="fade-delay" type="number" min="0" max="60" step="0.5" value="3" />
+          <span class="fade-unit">秒</span>
+        </div>
+
+        <div class="radar-footer">
+          <div class="radar-legend">
+            <span><i class="legend-line ct"></i>CT 道具轨迹</span>
+            <span><i class="legend-line t"></i>T 道具轨迹</span>
+            <span><i class="legend-dot smoke"></i>烟雾</span>
+            <span><i class="legend-dot flash"></i>闪光</span>
+            <span><i class="legend-dot fire"></i>燃烧</span>
+            <span><i class="legend-dot frag"></i>HE</span>
+          </div>
+          <div class="half-switch" aria-label="选择显示半场">
+            <span>SHOW HALF</span>
+            <button class="half-button active" data-half="1">H1</button>
+            <button class="half-button" data-half="2">H2</button>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <span>12 ROUNDS · ONE TIMELINE</span>
+        <span>GSI :31337 · HUD :23416</span>
+      </footer>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

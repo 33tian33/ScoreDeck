@@ -1,0 +1,5 @@
+VoiceBridge 0.6.3 — director delay
+Original suite: 52/52 passed on Linux.
+Expanded integration verifies scheduled dispatch, no early acknowledgement, cancellation, trimmed start, expired delay, frozen pending deadline, duplicate OBS rejection and persistent settings.
+Windows / TeamSpeak / real OBS runtime not available in this environment; on-device validation remains necessary.
+Native binaries unchanged; SHA256 and PE architecture checked.

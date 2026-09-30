@@ -1,0 +1,8 @@
+This package includes the official Node.js v20.19.5 Windows x64 runtime.
+
+Node.js is distributed under the MIT License. The Node.js license text and
+source information are available at https://github.com/nodejs/node/blob/v20.19.5/LICENSE
+and https://nodejs.org/en/download.
+
+The Radar HUD GSI application code remains under the license of its source
+project.

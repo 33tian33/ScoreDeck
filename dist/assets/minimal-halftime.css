@@ -1,0 +1,13 @@
+/* Fixed 1920×1080 broadcast layout, transparent slots and media kept intact. */
+#stage{font-family:Inter,"Segoe UI","Noto Sans SC Variable","Microsoft YaHei",sans-serif;padding:32px 60px 30px}
+#decoration{display:none}
+header{height:216px;gap:44px}
+#round{font-size:calc(25px * var(--round-scale,1));font-weight:500;letter-spacing:1px;opacity:.7;height:44px}
+#title{font-size:calc(100px * var(--title-scale,1));font-weight:600;letter-spacing:-3px}
+#timer{font-family:Inter,"Segoe UI",sans-serif;font-size:calc(160px * var(--timer-scale,1));font-weight:550;letter-spacing:-8px;line-height:1.1}
+#timer.ended{font-size:calc(64px * var(--timer-scale,1));font-weight:600;letter-spacing:0}
+#slots{height:610px}.slot{border-radius:20px}.slot,.content,.content>video,.content>iframe{background:transparent;border:0;box-shadow:none}
+.label{left:16px;top:16px;border-radius:999px;font:600 22px/1.4 "Segoe UI","Noto Sans SC Variable","Microsoft YaHei",sans-serif;letter-spacing:1px;padding:10px 18px;color:#212121}
+#scoreboard{height:182px;grid-template-columns:minmax(0,1fr) 290px minmax(0,1fr);gap:32px}
+.team{gap:26px}.team img{width:92px;height:92px}.team span{font-family:Inter,"Segoe UI","Noto Sans SC Variable","Microsoft YaHei",sans-serif;font-size:calc(56px * var(--score-scale,1));font-weight:600;letter-spacing:-1px}
+.score strong{font-family:Inter,"Segoe UI",sans-serif;font-size:calc(98px * var(--score-scale,1));font-weight:600;letter-spacing:-5px;gap:22px}.score i{font-size:.5em;font-weight:400;opacity:.45}.score small{font-size:20px;letter-spacing:3px;opacity:.65;margin-top:6px}

@@ -1,0 +1,1 @@
+{"name":"radar-hud-gsi","version":"0.3.11","private":true,"scripts":{"start":"node backend.cjs","test":"node --test tests/*.cjs"},"engines":{"node":">=22"}}

@@ -1,0 +1,18 @@
+{
+  "channels": [
+    {
+      "id": "channel-alpha",
+      "name": "主队战术频道",
+      "serverAddress": "ts.example.com",
+      "channelPath": "比赛区/主队",
+      "connectionAlias": "recorder-alpha"
+    },
+    {
+      "id": "channel-bravo",
+      "name": "二队观察频道",
+      "serverAddress": "ts.example.com",
+      "channelPath": "比赛区/二队",
+      "connectionAlias": "recorder-bravo"
+    }
+  ]
+}

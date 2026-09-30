@@ -1,0 +1,1 @@
+{"name":"audio-in-label","version":"1.0.0","private":true,"scripts":{"studio":"remotion studio --no-open","render":"remotion render src/index.ts AudioInPreview Audio-in-Preview.mp4"},"dependencies":{"remotion":"4.0.527","@remotion/cli":"4.0.527","react":"19.1.0","react-dom":"19.1.0"},"devDependencies":{"typescript":"5.9.3","@types/react":"19.1.0"}}

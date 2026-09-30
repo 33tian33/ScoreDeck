@@ -1,0 +1,16 @@
+{
+  "name": "teamspeak-director-mvp",
+  "version": "0.6.4-sd",
+  "private": true,
+  "type": "module",
+  "description": "双 TeamSpeak 频道游戏语音智能分段与 OBS 导播原型",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "generate:audio": "node scripts/generate-demo-audio.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

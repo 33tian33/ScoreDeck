@@ -1,0 +1,351 @@
+/* ScoreDeck CS 2.3: control-room and broadcast usability pass. */
+
+/* Control room: denser hierarchy, safer scrolling, clearer actions. */
+.topbar {
+  height: 88px;
+}
+
+.workspace {
+  padding-top: 16px;
+}
+
+.sidebar {
+  overflow: hidden;
+}
+
+.sidebar nav {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.sidebar nav button,
+.button,
+.text-button,
+input,
+select {
+  min-height: 38px;
+}
+
+.sidebar nav button:focus-visible,
+.button:focus-visible,
+.text-button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.top-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.quick-match {
+  max-width: min(520px, calc(100vw - 255px));
+}
+
+.quick-match strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manual-series-score input,
+.result-score input {
+  text-transform: uppercase;
+}
+
+.manual-series-score input::placeholder,
+.result-score input::placeholder {
+  color: #7f7f7f;
+  font-size: 10px;
+}
+
+/* Output header: prevent long event names and round labels from colliding. */
+.output-brand,
+.output-context {
+  min-width: 0;
+  max-width: 48vw;
+}
+
+.output-brand strong,
+.output-brand small,
+.output-context small,
+.output-context strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Countdown is intentionally clean: subtitle, title and clock only. */
+.countdown-output .output-header,
+.countdown-scene > span {
+  display: none;
+}
+
+.countdown-scene {
+  inset: 0;
+}
+
+.countdown-scene p {
+  font-size: calc(1.15vw * var(--font-scale));
+}
+
+.countdown-scene h1 {
+  font-size: calc(4.8vw * var(--font-scale));
+}
+
+.countdown-scene > strong {
+  font-size: calc(12.5vw * var(--font-scale));
+}
+
+/* Standings: retain all columns while keeping team names readable. */
+.standings-row > span,
+.third-place-row > span {
+  min-width: 0;
+}
+
+.standings-row > span strong,
+.standings-row > span small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.third-place-columns {
+  align-items: stretch;
+}
+
+/* Knockout focus: four-card geometry is the reference for two cards too. */
+.focus-standalone-grid.count-1 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.focus-standalone-grid.count-1 .focus-standalone-card {
+  grid-column: 2 / span 2;
+}
+
+.focus-standalone-grid.count-2,
+.focus-standalone-grid.count-4 {
+  height: 100%;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.62vw;
+}
+
+.focus-standalone-grid.count-2 .focus-standalone-card,
+.focus-standalone-grid.count-4 .focus-standalone-card {
+  grid-template-rows: 32vh minmax(0, 1fr);
+}
+
+.focus-standalone-grid.count-2 .focus-standalone-card:first-child {
+  grid-column: 2;
+}
+
+.focus-standalone-grid.count-2 .focus-standalone-matchup,
+.focus-standalone-grid.count-4 .focus-standalone-matchup {
+  padding: 0.82vw;
+}
+
+.focus-standalone-grid.count-2 .focus-standalone-matchup .knockout-focus-match,
+.focus-standalone-grid.count-4 .focus-standalone-matchup .knockout-focus-match {
+  height: 100%;
+  padding: 0.76vw;
+}
+
+.focus-standalone-grid.count-2 .focus-match-stage,
+.focus-standalone-grid.count-4 .focus-match-stage {
+  margin-bottom: 1.15vh;
+  font-size: calc(0.76vw * var(--font-scale));
+}
+
+.focus-standalone-grid.count-2 .focus-match-team,
+.focus-standalone-grid.count-4 .focus-match-team {
+  height: 6.4vh;
+  grid-template-columns: 3.2vw minmax(0, 1fr) auto;
+  gap: 0.65vw;
+}
+
+.focus-standalone-grid.count-2 .focus-match-team .team-avatar,
+.focus-standalone-grid.count-4 .focus-match-team .team-avatar {
+  width: 2.65vw;
+  height: 2.65vw;
+  font-size: calc(0.72vw * var(--font-scale));
+}
+
+.focus-standalone-grid.count-2 .focus-match-team strong,
+.focus-standalone-grid.count-4 .focus-match-team strong {
+  letter-spacing: 0.045em;
+  font-size: calc(1.28vw * var(--font-scale));
+}
+
+.focus-standalone-grid.count-2 .focus-match-team > b,
+.focus-standalone-grid.count-4 .focus-match-team > b {
+  font-size: calc(1.55vw * var(--font-scale));
+}
+
+.focus-standalone-grid.count-2 .focus-map-scores,
+.focus-standalone-grid.count-4 .focus-map-scores {
+  gap: 0.55vw;
+  padding-top: 1.25vh;
+}
+
+.focus-standalone-grid.count-2 .focus-map-scores span,
+.focus-standalone-grid.count-4 .focus-map-scores span {
+  font-size: calc(0.6vw * var(--font-scale));
+}
+
+.focus-standalone-grid.count-2 .focus-map-scores b,
+.focus-standalone-grid.count-4 .focus-map-scores b {
+  font-size: calc(0.72vw * var(--font-scale));
+}
+
+.focus-standalone-grid.count-2 .focus-rosters,
+.focus-standalone-grid.count-4 .focus-rosters {
+  padding: 0.65vw 0.76vw;
+}
+
+.focus-standalone-grid.count-2 .focus-roster-team,
+.focus-standalone-grid.count-4 .focus-roster-team {
+  grid-template-rows: 4.8vh minmax(0, 1fr);
+  padding: 0.38vw 0.16vw;
+}
+
+.focus-standalone-grid.count-2 .focus-roster-heading .team-avatar,
+.focus-standalone-grid.count-4 .focus-roster-heading .team-avatar {
+  width: 2.38vw;
+  height: 2.38vw;
+}
+
+.focus-standalone-grid.count-2 .focus-roster-heading strong,
+.focus-standalone-grid.count-4 .focus-roster-heading strong {
+  font-size: calc(0.94vw * var(--font-scale));
+}
+
+.focus-standalone-grid.count-2 .focus-roster-heading small,
+.focus-standalone-grid.count-4 .focus-roster-heading small {
+  font-size: calc(0.56vw * var(--font-scale));
+}
+
+.focus-standalone-grid.count-2 .focus-roster-list > div,
+.focus-standalone-grid.count-4 .focus-roster-list > div {
+  min-height: 2.35vh;
+  grid-template-columns: 1.28vw 1.55vw minmax(0, 1fr) auto;
+  gap: 0.3vw;
+}
+
+.focus-standalone-grid.count-2 .focus-roster-list > div > b,
+.focus-standalone-grid.count-4 .focus-roster-list > div > b {
+  font-size: calc(0.52vw * var(--font-scale));
+}
+
+.focus-standalone-grid.count-2 .focus-roster-list .player-avatar,
+.focus-standalone-grid.count-4 .focus-roster-list .player-avatar {
+  width: 1.28vw;
+  height: 1.28vw;
+}
+
+.focus-standalone-grid.count-2 .focus-roster-list > div > span,
+.focus-standalone-grid.count-4 .focus-roster-list > div > span {
+  font-size: calc(0.82vw * var(--font-scale));
+  line-height: 1.1;
+}
+
+.focus-standalone-grid.count-2 .focus-roster-list > div > small,
+.focus-standalone-grid.count-4 .focus-roster-list > div > small {
+  min-width: 2.65vw;
+  font-size: calc(0.56vw * var(--font-scale));
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+}
+
+/* Readability pass for dense Swiss and double-elimination diagrams. */
+.double-round-column .bracket-match-mini p span,
+.swiss-tree-team strong,
+.swiss-record-team strong {
+  letter-spacing: 0.025em;
+}
+
+.double-elim-links path,
+.swiss-tree-links path,
+.double-final-links path {
+  opacity: 0.92;
+}
+
+@media (max-height: 760px) {
+  .sidebar {
+    padding-top: 16px;
+    padding-bottom: 12px;
+  }
+
+  .app-brand {
+    padding-bottom: 14px;
+  }
+
+  .event-pill {
+    margin-bottom: 14px;
+  }
+
+  .sidebar nav button {
+    min-height: 34px;
+    padding-block: 8px;
+  }
+}
+
+@media (max-width: 1220px) {
+  .topbar {
+    align-items: flex-start;
+    height: auto;
+    min-height: 88px;
+    gap: 12px;
+    padding-block: 16px;
+  }
+
+  .topbar h1 {
+    font-size: 27px;
+  }
+}
+.manual-schedule-heading-actions {
+  align-items: flex-end;
+  display: grid;
+  gap: 7px;
+  justify-items: end;
+}
+
+.manual-completed-filter {
+  align-items: center;
+  background: #0e0e0e;
+  border: 1px solid #3b3b3b;
+  border-radius: 7px;
+  cursor: pointer;
+  display: flex;
+  gap: 9px;
+  min-height: 38px;
+  padding: 0 12px;
+  user-select: none;
+}
+
+.manual-completed-filter:hover {
+  border-color: #636363;
+}
+
+.manual-completed-filter input {
+  accent-color: var(--accent);
+  box-shadow: none;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  width: 16px;
+}
+
+.manual-completed-filter span {
+  color: #e3e3e3;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.manual-completed-filter small {
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 800;
+}

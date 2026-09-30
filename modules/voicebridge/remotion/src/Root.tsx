@@ -1,0 +1,13 @@
+import React from 'react';
+import {AbsoluteFill,Composition,Easing,interpolate,useCurrentFrame} from 'remotion';
+import './audio-in-design.css';
+type Props={teamName:string;preview:boolean;conflict?:boolean};
+export const AudioIn:React.FC<Props>=({teamName,preview,conflict=false})=>{
+ const frame=useCurrentFrame();
+ return <AbsoluteFill style={{background:preview?'#24272b':'transparent',overflow:'hidden'}}>
+ {preview&&<><div style={{position:'absolute',left:64,top:64,fontFamily:'Arial',fontSize:17,letterSpacing:5,color:'#a2a5a8'}}>AUDIO-IN / BROADCAST MOTION</div><div style={{position:'absolute',left:64,bottom:58,fontFamily:'Arial',fontSize:16,color:'#85888b'}}>PREVIEW BACKGROUND ONLY · OBS OUTPUT IS TRANSPARENT</div><div style={{position:'absolute',left:64,top:510,fontFamily:'Arial',fontSize:21,color:'#a6a7aa'}}>{frame<60?'STANDBY':frame<360?'AUDIO PLAYING':'RETURN TO TRANSPARENT'}</div></>}
+ <div className={`audio-in-shell ${conflict?'is-conflict':''}`} style={{opacity:frame<360?interpolate(frame,[60,89],[0,1],{extrapolateLeft:'clamp',extrapolateRight:'clamp',easing:Easing.bezier(.16,1,.3,1)}):interpolate(frame,[360,382],[1,0],{extrapolateLeft:'clamp',extrapolateRight:'clamp',easing:Easing.bezier(.55,0,1,.45)}),translate:`${frame<360?interpolate(frame,[60,89],[440,0],{extrapolateLeft:'clamp',extrapolateRight:'clamp',easing:Easing.bezier(.16,1,.3,1)}):interpolate(frame,[360,382],[0,440],{extrapolateLeft:'clamp',extrapolateRight:'clamp',easing:Easing.bezier(.55,0,1,.45)})}px 0`}}>
+ {conflict&&<div className="audio-in-badge">氛围对了</div>}<div className="audio-in-card"><h1 className="audio-in-title">Audio-in</h1><div className="audio-in-live"><span className="audio-in-dot"/>Live in</div><div className="audio-in-team" style={{fontSize:teamName.length>16?16:30}}>{teamName}</div><div className="audio-in-rule"/></div></div>
+ </AbsoluteFill>;
+};
+export const Root:React.FC=()=> <><Composition id="AudioInPreview" component={AudioIn} width={1920} height={1080} fps={60} durationInFrames={450} defaultProps={{teamName:'FUNTRUE',preview:true}}/><Composition id="AudioInTransparent" component={AudioIn} width={1920} height={1080} fps={60} durationInFrames={450} defaultProps={{teamName:'FUNTRUE',preview:false}}/><Composition id="AudioInConflictPreview" component={AudioIn} width={1920} height={1080} fps={60} durationInFrames={450} defaultProps={{teamName:'FUNTRUE',preview:true,conflict:true}}/><Composition id="AudioInConflictTransparent" component={AudioIn} width={1920} height={1080} fps={60} durationInFrames={450} defaultProps={{teamName:'FUNTRUE',preview:false,conflict:true}}/></>;

@@ -1,0 +1,25 @@
+# Runtime data and credentials
+/data/
+/integrations/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+control-key.txt
+node_modules/
+# Platform runtimes and distributables are release artifacts
+*.exe
+*.dll
+*.zip
+*.bundle
+*.tmp
+*.log
+BUILD-MANIFEST*.json
+PACKAGE-SHA256.json
+/verification/
+/release/
+/coverage/
+.DS_Store
+
+/modules/replay/ProjectReplay

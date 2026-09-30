@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"es2020","jsx":"react-jsx","module":"esnext","esModuleInterop":true,"skipLibCheck":true,"moduleResolution":"node","strict":true},"include":["src"]}

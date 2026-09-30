@@ -1,0 +1,9 @@
+/* Radar controls only; CT/T, utility colors and clean OBS output are unchanged. */
+body:not(.clean-output){background:#212121;color:#ececec;font-family:Inter,"Segoe UI","Microsoft YaHei",sans-serif}
+body:not(.clean-output) .topbar{background:#212121;border-color:#444}
+body:not(.clean-output) .control-panel{background:#262626;border:1px solid #444;border-radius:16px}
+body:not(.clean-output) button{background:#303030;color:#ececec;border:1px solid #555;border-radius:999px;padding:8px 14px}
+body:not(.clean-output) input,body:not(.clean-output) select{background:#212121;color:#ececec;border-color:#555;border-radius:9px}
+body:not(.clean-output) .eyebrow{color:#aaa;letter-spacing:.04em}
+body:not(.clean-output) h1{font-size:26px;font-weight:600;letter-spacing:-.02em}
+body:not(.clean-output) button:focus-visible{outline:2px solid #ddd;outline-offset:3px}

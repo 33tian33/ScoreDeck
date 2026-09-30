@@ -1,0 +1,9 @@
+.env
+api-settings.json
+hotwords-preset.json
+runtime/
+node_modules/
+native-plugin/build*/
+*.dll
+*.so
+*.dylib
