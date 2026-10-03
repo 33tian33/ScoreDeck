@@ -1,26 +1,5 @@
 const groups = "ABCDEFGHIJKL".split("");
 
-const greekSeeds = [
-  ["Alpha", "ALP"], ["Beta", "BET"], ["Gamma", "GAM"], ["Delta", "DEL"],
-  ["Epsilon", "EPS"], ["Zeta", "ZET"], ["Eta", "ETA"], ["Theta", "THE"],
-  ["Iota", "IOT"], ["Kappa", "KAP"], ["Lambda", "LAM"], ["Mu", "MUU"],
-  ["Nu", "NUU"], ["Xi", "XII"], ["Omicron", "OMI"], ["Pi", "PII"],
-  ["Rho", "RHO"], ["Sigma", "SIG"], ["Tau", "TAU"], ["Upsilon", "UPS"],
-  ["Phi", "PHI"], ["Chi", "CHI"], ["Psi", "PSI"], ["Omega", "OME"],
-];
-
-const seedColors = ["#d94b4b", "#4d80d8", "#d9ad3f", "#4b9d72", "#9a58c7", "#d66f3f"];
-
-const teamSeeds = Array.from({ length: 48 }, (_, index) => {
-  const [baseName, baseShortName] = greekSeeds[index % greekSeeds.length];
-  const secondCycle = index >= greekSeeds.length;
-  const name = secondCycle ? `${baseName} II` : baseName;
-  const shortName = secondCycle ? `${baseShortName.slice(0, 1)}II` : baseShortName;
-  const playerPrefix = `${baseName.toLowerCase()}${secondCycle ? "_ii" : ""}`;
-  const players = Array.from({ length: 7 }, (_, playerIndex) => `${playerPrefix}_${playerIndex + 1}`);
-  return [name, shortName, seedColors[index % seedColors.length], players];
-});
-
 function createPlayers(shortName, custom) {
   const fallbacks = ["nova", "vex", "orbit", "clutch", "zero", "reserve", "bench"];
   return fallbacks.map((name, index) => ({
@@ -41,33 +20,33 @@ const defaultThemeElements = {
 };
 
 function createDefaultState() {
-  const teams = teamSeeds.map(([name, shortName, color, customPlayers], index) => ({
-    id: `team-${String(index + 1).padStart(2, "0")}`,
-    name,
-    shortName,
-    group: groups[Math.floor(index / 4)],
-    color,
+  const teams = [{
+    id: "team-01",
+    name: "Test",
+    shortName: "TEST",
+    color: "#668dc3",
     logoPrimary: "",
     logoSecondary: "",
-    players: createPlayers(shortName, customPlayers),
-  }));
+    players: createPlayers("TEST"),
+  }];
 
   const matches = [];
 
   return {
     stages: [],
+    flowLifecycle: { status: "draft" },
     selectedStageId: "",
     flowOutputPage: 0,
     halftime: require("./halftime.cjs").normalize(),
     schemaVersion: 19,
     revision: 1,
     tournament: {
-      name: "Test1",
-      edition: "2026 WORLD FINALS",
+      name: "TestTournament",
+      edition: "",
       formatId: "flow",
       groupTieBreak: "round-diff",
       format: "自定义赛事流程",
-      location: "SHANGHAI",
+      location: "",
     },
     theme: {
       visualRevision: 1,
@@ -87,14 +66,14 @@ function createDefaultState() {
     outputCycle: {
       enabled: false,
       nodes: [
-        { id: "cycle-prematch", label: "赛前对阵", scene: "prematch", group: "A", knockoutArea: "upper", durationSeconds: 12, transitionSeconds: 1.2, enabled: true },
-        { id: "cycle-standings", label: "小组积分", scene: "standings", group: "A", knockoutArea: "upper", durationSeconds: 10, transitionSeconds: 1.2, enabled: true },
-        { id: "cycle-schedule", label: "未来赛程", scene: "schedule", group: "A", knockoutArea: "upper", durationSeconds: 10, transitionSeconds: 1.2, enabled: true },
+        { id: "cycle-prematch", label: "赛前对阵", scene: "prematch", stageId: "", flowMatchId: "", flowPage: 0, durationSeconds: 12, transitionSeconds: 1.2, enabled: true },
+        { id: "cycle-standings", label: "小组积分", scene: "standings", stageId: "", flowMatchId: "", flowPage: 0, durationSeconds: 10, transitionSeconds: 1.2, enabled: true },
+        { id: "cycle-schedule", label: "未来赛程", scene: "schedule", stageId: "", flowMatchId: "", flowPage: 0, durationSeconds: 10, transitionSeconds: 1.2, enabled: true },
       ],
     },
     countdown: {
       title: "MATCH STARTS IN",
-      subtitle: "NATIONS STRIKE CUP",
+      subtitle: "TestTournament",
       endText: "LIVE NOW",
       durationSeconds: 600,
       remainingSeconds: 600,
@@ -110,20 +89,20 @@ function createDefaultState() {
       overrides: {},
     },
     liveScene: "prematch",
-    selectedGroup: "A",
+    selectedGroup: "",
     selectedMatchId: "",
     focus: {
-      groups: { mode: "single", selected: ["A"] },
-      knockout: { mode: "area", areaSize: "quadrant", area: "Q1", stage: "R16" },
+      groups: { mode: "single", selected: [] },
+      knockout: { mode: "area", areaSize: "quadrant", area: "", stage: "" },
     },
     teams,
     matches,
     mvp: {
-      teamId: "team-01",
-      playerId: "ALPHA",
+      teamId: "",
+      playerId: "",
       title: "MATCH MVP",
-      statline: "48 Kills · +16 K/D · 6 Clutches",
-      note: "在关键局连续完成残局，帮助队伍拿下小组赛首胜。",
+      statline: "",
+      note: "",
       style: "1",
       rating: "",
       we: "",
@@ -213,7 +192,7 @@ function migrateStateRaw(input) {
       groupTieBreak: input.tournament?.groupTieBreak === "head-to-head" ? "head-to-head" : "round-diff",
       formatId: ["flow", "world-cup-48", "double-elim-8", "single-elim-16", "single-elim-8", "swiss-16"].includes(input.tournament?.formatId)
         ? input.tournament.formatId
-        : "world-cup-48",
+        : defaults.tournament.formatId,
       format: ["flow", "world-cup-48", "double-elim-8", "single-elim-16", "single-elim-8", "swiss-16"].includes(input.tournament?.formatId)
         ? ({ "flow": "自定义赛事流程", "world-cup-48": "世界杯48队模式", "double-elim-8": "8队双败", "single-elim-16": "16队单败", "single-elim-8": "8队单败", "swiss-16": "16队瑞士轮" })[input.tournament.formatId]
         : defaults.tournament.format,
@@ -238,7 +217,7 @@ function migrateStateRaw(input) {
         id: String(node.id || `cycle-${index + 1}`),
         label: String(node.label || `页面 ${index + 1}`),
         scene: ["focus", "standings", "thirdPlace", "prematch", "bracket", "knockoutFocus", "postmatch", "schedule", "mapStats", "mapBP"].includes(node.scene) ? node.scene : "prematch",
-        group: groups.includes(String(node.group || "").toUpperCase()) ? String(node.group).toUpperCase() : String(input.selectedGroup || "A"),
+        group: groups.includes(String(node.group || "").toUpperCase()) ? String(node.group).toUpperCase() : String(input.selectedGroup || ""),
         stageId: typeof node.stageId === "string" ? node.stageId : "",
         flowMatchId: typeof node.flowMatchId === "string" ? node.flowMatchId : "",
         flowPage: Math.max(0, Math.min(99, Number(node.flowPage) || 0)),

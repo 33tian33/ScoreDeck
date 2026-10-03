@@ -1,9 +1,10 @@
+const {createTestState}=require('./fixtures/state.cjs');
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const R=require('../server/scoredeck-rules.cjs'),D=require('../server/default-state.cjs'),F=require('../server/tournament-flow.cjs'),M=require('../server/match-data.cjs');
 const ID='76561198000000001',OTHER='76561198000000003';
-function fixture(){const s=D.createDefaultState(),st=F.addStage(s,'playoff',{teamCount:2});st.slots.forEach((v,i)=>v.teamId=s.teams[i].id);F.reconcile(s);F.activate(s);s.selectedStageId=st.id;s.selectedMatchId=F.matchesOf(s,st.id)[0].id;const m=M.currentMatch(s);m.status='live';const g={connected:true,sourceAgeMs:10,map:{name:'de_anubis',phase:'live',teamCT:{score:4},teamT:{score:2}},allplayers:{[ID]:{name:'changed A',team:'CT',match_stats:{kills:12,deaths:3,assists:4}},[OTHER]:{name:'changed B',team:'T',match_stats:{kills:8,deaths:6,assists:2}}}};R.setPlayerSteamId(s,s.teams[0].id,0,ID);R.setPlayerSteamId(s,s.teams[1].id,0,OTHER);return {s,m,g};}
+function fixture(){const s=createTestState(),st=F.addStage(s,'playoff',{teamCount:2});st.slots.forEach((v,i)=>v.teamId=s.teams[i].id);F.reconcile(s);F.activate(s);s.selectedStageId=st.id;s.selectedMatchId=F.matchesOf(s,st.id)[0].id;const m=M.currentMatch(s);m.status='live';const g={connected:true,sourceAgeMs:10,map:{name:'de_anubis',phase:'live',teamCT:{score:4},teamT:{score:2}},allplayers:{[ID]:{name:'changed A',team:'CT',match_stats:{kills:12,deaths:3,assists:4}},[OTHER]:{name:'changed B',team:'T',match_stats:{kills:8,deaths:6,assists:2}}}};R.setPlayerSteamId(s,s.teams[0].id,0,ID);R.setPlayerSteamId(s,s.teams[1].id,0,OTHER);return {s,m,g};}
 test('Steam64 stays a precise string across migration and rejects numeric, malformed and duplicate values',()=>{
- const s=D.createDefaultState(),a=s.teams[0].id;R.setPlayerSteamId(s,a,0,' ７６５６１１９８００００００００１ ');assert.equal(s.teams[0].players[0].steamId,ID);
+ const s=createTestState(),a=s.teams[0].id;R.setPlayerSteamId(s,a,0,' ７６５６１１９８００００００００１ ');assert.equal(s.teams[0].players[0].steamId,ID);
  const restored=D.migrateState(JSON.parse(JSON.stringify(s)));assert.equal(restored.teams[0].players[0].steamId,ID);
  for(const bad of [Number(ID),'7.6561198e16','123',ID+'0','00000000000000000'])assert.throws(()=>R.setPlayerSteamId(s,a,0,bad),/Steam64/);
  assert.throws(()=>R.setPlayerSteamId(s,s.teams[1].id,1,ID),/已由/);assert.equal(s.teams[1].players[1].steamId,'');
@@ -35,7 +36,7 @@ test('duplicate roster IDs and multiple nickname accounts remain unbound',()=>{
 });
 function fieldHarness(props){let cursor=0;const slots=[],effects=[];const l={createElement:(type,props,...children)=>({type,props,children}),useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=initial;return [slots[i],v=>{slots[i]=v;}];},useRef:initial=>{const i=cursor++;return slots[i]??(slots[i]={current:initial});},useEffect:(fn,deps)=>{const i=cursor++;if(!slots[i]||deps.some((v,j)=>v!==slots[i][j])){slots[i]=deps;effects.push(fn);}}};const ctx=vm.createContext({l});vm.runInContext(fs.readFileSync(path.join(__dirname,'../ui/text-field.js'),'utf8'),ctx);return ()=>{cursor=0;const result=ctx.sdSteamIdField(props);while(effects.length)effects.shift()();return result;};}
 test('Steam64 field buffers partial input, saves on Enter/blur and shows duplicate errors',()=>{
- const s=D.createDefaultState(),saved=[];const props={value:'',label:'ID',validate:v=>R.checkPlayerSteamId(s,s.teams[0].id,0,v),onSave:v=>saved.push(v)},render=fieldHarness(props);
+ const s=createTestState(),saved=[];const props={value:'',label:'ID',validate:v=>R.checkPlayerSteamId(s,s.teams[0].id,0,v),onSave:v=>saved.push(v)},render=fieldHarness(props);
  let field=render().children[1];field.props.onFocus();field.props.onChange({currentTarget:{value:'7656'}});field=render().children[1];assert.deepEqual(saved,[]);field.props.onBlur();assert.match(render().children[2].children[0],/17 位/);
  field.props.onChange({currentTarget:{value:ID}});field=render().children[1];field.props.onKeyDown({key:'Enter',preventDefault(){}});field.props.onBlur();assert.deepEqual(saved,[ID]);
  s.teams[1].players[0].steamId=OTHER;field.props.onChange({currentTarget:{value:OTHER}});field=render().children[1];field.props.onBlur();assert.match(render().children[2].children[0],/已由/);assert.deepEqual(saved,[ID]);
@@ -51,7 +52,7 @@ test('HTTP save rejects numeric/duplicate Steam64 and preserves exact IDs throug
   const headers={'Content-Type':'application/json','X-ScoreDeck-Key':auth.controlKey,'X-ScoreDeck-Epoch':auth.serverEpoch,'X-ScoreDeck-Control-Epoch':auth.controlEpoch};
   const get=()=>fetch(root+'/api/state').then(r=>r.json());
   const put=s=>fetch(root+'/api/state',{method:'PUT',headers,body:JSON.stringify({...s,expectedRevision:s.revision})});
-  let s=await get();s.teams[0].players[0].steamId=ID;let response=await put(s);assert.equal(response.status,200);s=await response.json();assert.equal(s.teams[0].players[0].steamId,ID);
+  let s=await get();F.addTeam(s);s.teams[0].players[0].steamId=ID;let response=await put(s);assert.equal(response.status,200);s=await response.json();assert.equal(s.teams[0].players[0].steamId,ID);
   for(const value of [Number(ID),'765']){const bad=structuredClone(s);bad.teams[1].players[0].steamId=value;assert.equal((await put(bad)).status,400);}
   const duplicate=structuredClone(s);duplicate.teams[1].players[0].steamId=ID;assert.equal((await put(duplicate)).status,400);assert.equal((await get()).revision,s.revision);
   const data=Buffer.from(await fetch(root+'/api/archive').then(r=>r.arrayBuffer()));const archived=JSON.parse(archive.unpack(data).get('broadcast-state.json'));assert.equal(archived.teams[0].players[0].steamId,ID);

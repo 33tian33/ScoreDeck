@@ -1,8 +1,9 @@
+const {createTestState:createBlankState}=require('./fixtures/state.cjs');
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),net=require('node:net'),vm=require('node:vm'),crypto=require('node:crypto'),assert=require('node:assert/strict');
 const {test}=require('node:test');
 const root=path.resolve(__dirname,'..');
 const {createBroadcastServer}=require(path.join(root,'server/broadcast-server.cjs'));
-const {createDefaultState:createBlankState,migrateState}=require(path.join(root,'server/default-state.cjs'));
+const {migrateState}=require(path.join(root,'server/default-state.cjs'));
 // These fixtures exercise legacy imports and legacy fixed-format schedules.
 const createDefaultState=()=>{const s=createBlankState();s.tournament.formatId='world-cup-48';s.tournament.format='世界杯48队模式';return s;};
 const archive=require(path.join(root,'server/archive.cjs'));
@@ -67,7 +68,7 @@ test('handoff regression: authority, conflicts, archive, Excel, cycle, statistic
   const rules=require(path.join(root,'server/scoredeck-rules.cjs'));
   const cycle={enabled:true,startAt:new Date(100000).toISOString(),nodes:[{id:'a',enabled:true,scene:'standings',durationSeconds:10},{id:'b',enabled:true,scene:'prematch',durationSeconds:10}]};assert.equal(rules.cyclePoint(cycle,115000).node.scene,'prematch');record('H09-cycle-server-time',{});
   // The modal compares against its opening snapshot; untouched old statistics are not submitted.
-  const modalCode=ui.slice(ui.indexOf('    S = () =>\n      SDClient.mutateFrom(',ui.indexOf('function Xt(')),ui.indexOf('    re = (e, t) =>',ui.indexOf('function Xt('))).trim().replace(/^S =/,'var S =').replace(/,\s*$/,';');
+  const modalCode=ui.slice(ui.indexOf('    S = () =>\n      SDClient.mutateFrom(',ui.indexOf('function Xt({ state:')),ui.indexOf('    re = (e, t) =>',ui.indexOf('function Xt({ state:'))).trim().replace(/^S =/,'var S =').replace(/,\s*$/,';');
   const original=event.matches[0],draft=structuredClone(original.mapDetails);draft[0].teamA=[{playerId:event.teams[0].players[0].id,starter:true,kills:5,deaths:1,assists:0,rating:1}];
   event.matches[0].mapDetails=structuredClone(draft);const latest=structuredClone(event);latest.matches[0].mapDetails=structuredClone(draft);latest.matches[0].mapDetails[0].teamA[0].kills=30;
   let changed;const modal={editBase:{current:event},SDClient:{mutateFrom:(base,fn)=>changed=fn(structuredClone(base))},t:original,o:draft,y:null,te:()=>({a:0,b:0}),ScoreDeckRules:require(path.join(root,'server/scoredeck-rules.cjs')),ke:e=>e};vm.createContext(modal);vm.runInContext(modalCode+' S();',modal);assert.equal(changed.matches[0].mapDetails[0].teamA[0].kills,5);const diffClient=client(latest);await until(()=>diffClient.api.state);const overwrite=diffClient.api.diff(event,changed).find(c=>c.path.at(-1)==='kills');assert.equal(overwrite,undefined);record('H10-untouched-stat-not-overwritten',{});diffClient.close();

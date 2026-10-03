@@ -1,3 +1,4 @@
+const {createTestState}=require('./fixtures/state.cjs');
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),net=require('node:net');
 const {createIntegrationService}=require('../server/integration-service.cjs');
@@ -60,7 +61,7 @@ test('main match identities follow stages, swap channels and CT/T, clear missing
  const executable=process.env.SCOREDECK_TEST_REPLAY;
  if(!executable)return t.skip('Set SCOREDECK_TEST_REPLAY to a native Replay binary');
  const F=require('../server/tournament-flow.cjs'),V=require('../server/flow-display.cjs'),D=require('../server/default-state.cjs');
- const dir=fs.mkdtempSync(path.join(os.tmpdir(),'sd-identities-'));let state=D.createDefaultState();
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'sd-identities-'));let state=createTestState();
  const a=F.addStage(state,'playoff',{name:'第一阶段',teamCount:4}),b=F.addStage(state,'playoff',{name:'第二阶段',teamCount:2});
  a.slots.forEach((s,i)=>s.teamId=state.teams[i].id);b.slots.forEach((s,i)=>s.teamId=state.teams[i+4].id);F.reconcile(state);V.selectStage(state,a.id);
  state.teams[0].name='复旦大学';state.teams[0].shortName='复旦';state.teams[0].logoPrimary=fs.readFileSync(path.join(__dirname,'fixtures/team-logo.webp.txt'),'utf8').trim();

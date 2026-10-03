@@ -16004,14 +16004,15 @@ function Ut() {
 
 const sdNavPaths={
  live:'M4 5h16v11H4z M8 20h8 M12 16v4',entrance:'M8 4l12 8-12 8z',formats:'M4 18V9 M10 18V4 M16 18v-6 M3 21h18',teams:'M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M2 21v-3c0-3 3-4 7-4s7 1 7 4v3 M17 4a4 4 0 0 1 0 8 M19 15c2 1 3 3 3 6',halftime:'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18 M12 7v5l3 2',radarhud:'M12 3a9 9 0 1 0 9 9 M12 7a5 5 0 1 0 5 5 M12 12l8-8 M12 11v2',replay:'M3 4v6h6 M3 10a9 9 0 1 1 1 8 M12 7v5l4 2',voicebridge:'M4 9v6 M8 5v14 M12 3v18 M16 6v12 M20 9v6',schedule:'M4 5h16v16H4z M8 3v4 M16 3v4 M4 10h16 M8 14h2 M14 14h2 M8 18h2',post:'M8 3h8v7c0 5-8 5-8 0z M8 5H4v3c0 3 4 3 4 3 M16 5h4v3c0 3-4 3-4 3 M12 14v5 M8 21h8',outputs:'M6 4h5v5H6z M15 15h5v5h-5z M8 9v8h7 M11 6h6v5 M14 8l3 3 3-3',sync:'M4 4h16v5H4z M6 9v12h12V9 M10 13h4',settings:'M4 6h16 M4 12h16 M4 18h16 M8 3v6 M16 9v6 M10 15v6'};
-function sdMinimalNavigation({active,onChange}){
+function sdMinimalNavigation({active,onChange,state}){
+ const locked=item=>item.id==='schedule'&&!(ScoreDeckFlow.enabled(state)&&ScoreDeckFlow.isActive(state));
  const [query,setQuery]=(0,l.useState)('');const ref=(0,l.useRef)(null);
  (0,l.useEffect)(()=>{const handler=e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();ref.current?.focus();}};window.addEventListener('keydown',handler);return()=>window.removeEventListener('keydown',handler)},[]);
  const groups=[['导播',['live','entrance','halftime','radarhud','replay','voicebridge']],['赛事',['formats','teams','schedule','post']],['工作区',['outputs','sync','settings']]];
  const match=item=>(item.label+' '+item.id).toLowerCase().includes(query.trim().toLowerCase());
  return O.jsxs('nav',{'aria-label':'主导航',children:[
- O.jsxs('label',{className:'sd-nav-search',children:[O.jsx(sdTextField,{ref,type:'search',placeholder:'搜索功能…','aria-label':'搜索导航功能',value:query,onChange:e=>setQuery(e.target.value),onKeyDown:e=>{if(e.key==='Escape'){setQuery('');e.target.blur();}if(e.key==='Enter'){const first=Bt.find(match);if(first){onChange(first.id);setQuery('');}}}}),O.jsx('kbd',{children:'⌘K'})]}),
- ...groups.flatMap(([title,ids])=>{const items=ids.map(id=>Bt.find(x=>x.id===id)).filter(match);return items.length?[O.jsx('p',{className:'nav-label',children:title},title),...items.map(item=>O.jsxs('button',{type:'button',className:active===item.id?'active':'','aria-current':active===item.id?'page':undefined,onClick:()=>{onChange(item.id);setQuery('');},children:[O.jsx('svg',{className:'sd-nav-icon',viewBox:'0 0 24 24','aria-hidden':true,children:O.jsx('path',{d:sdNavPaths[item.id]})}),item.label]},item.id))]:[]}),
+ O.jsxs('label',{className:'sd-nav-search',children:[O.jsx(sdTextField,{ref,type:'search',placeholder:'搜索功能…','aria-label':'搜索导航功能',value:query,onChange:e=>setQuery(e.target.value),onKeyDown:e=>{if(e.key==='Escape'){setQuery('');e.target.blur();}if(e.key==='Enter'){const first=Bt.find(item=>match(item)&&!locked(item));if(first){onChange(first.id);setQuery('');}}}}),O.jsx('kbd',{children:'⌘K'})]}),
+ ...groups.flatMap(([title,ids])=>{const items=ids.map(id=>Bt.find(x=>x.id===id)).filter(match);return items.length?[O.jsx('p',{className:'nav-label',children:title},title),...items.map(item=>O.jsxs('button',{type:'button',disabled:locked(item),title:locked(item)?'请先在赛事设置中配置自定义赛制并校验启用':undefined,className:active===item.id?'active':'','aria-current':active===item.id?'page':undefined,onClick:()=>{onChange(item.id);setQuery('');},children:[O.jsx('svg',{className:'sd-nav-icon',viewBox:'0 0 24 24','aria-hidden':true,children:O.jsx('path',{d:sdNavPaths[item.id]})}),item.label]},item.id))]:[]}),
  !Bt.some(match)&&O.jsx('p',{className:'sd-nav-empty',children:'没有匹配的功能'})]});
 }
 function sdMinimalPreset({commit}){
@@ -16026,6 +16027,7 @@ function Wt({ state: e, setState: t, meta: n, connection: r }) {
     d = (0,l.useCallback)((update,message=`改动已同步到 OBS`,immediate=false)=>{
       SDClient.mutate(update).then(()=>s(message)).catch(error=>s(error.message));
     },[]);
+  (0,l.useEffect)(()=>{if(i===`schedule`&&!(ScoreDeckFlow.enabled(e)&&ScoreDeckFlow.isActive(e)))a(`formats`);},[i,e]);
   return (0, O.jsxs)(`div`, {
     className: `app-shell ${ScoreDeckFlow.enabled(e)?"is-flow":""}`,
     style: Re(e.theme),
@@ -16041,7 +16043,7 @@ function Wt({ state: e, setState: t, meta: n, connection: r }) {
                 children: [
                   (0, O.jsx)(`strong`, { children: `ScoreDeck` }),
                   (0, O.jsx)(`span`, {
-                    children: `导播工作台 · 2.18.5`,
+                    children: `导播工作台 · 2.18.6`,
                   }),
                 ],
               }),
@@ -16059,7 +16061,7 @@ function Wt({ state: e, setState: t, meta: n, connection: r }) {
               }),
             ],
           }),
-          O.jsx(sdMinimalNavigation,{active:i,onChange:a}),
+          O.jsx(sdMinimalNavigation,{active:i,onChange:a,state:e}),
           (0, O.jsxs)(`div`, {
             className: `sidebar-bottom`,
             children: [
@@ -16189,234 +16191,6 @@ function Wt({ state: e, setState: t, meta: n, connection: r }) {
   });
 }
 function Gt({state:e,commit:t}) {return l.createElement(sdFlowEditor,{state:e,commit:t});}
-function sdLegacyFormats({ state: e, commit: t }) {
-  let n = f[p(e.tournament.formatId)],
-    r = n.id === `world-cup-48` ? ae(e) : [],
-    i = new Set(e.teams.map((e) => e.group).filter(Boolean)).size,
-    a = e.matches.filter((e) => e.bracketRound === `R32`),
-    o = a.length === 16 && a.every((e) => e.teamAId && e.teamBId),
-    s = (r) => {
-      r !== n.id &&
-        ((e.matches.some((e) => e.bracketRound) &&
-          !window.confirm(
-            `切换赛制会重建当前淘汰赛赛程，但会保留小组赛和队伍资料。是否继续？`,
-          )) ||
-          t((e) => Pe(e, r), `${f[r].name} 已启用`));
-    };
-  return (0, O.jsxs)(`div`, {
-    className: `workspace format-workspace`,
-    children: [
-      (0, O.jsxs)(`section`, {
-        className: `panel format-hero`,
-        children: [
-          (0, O.jsxs)(`div`, {
-            children: [
-              (0, O.jsx)(`p`, {
-                className: `eyebrow`,
-                children: `TOURNAMENT FORMAT`,
-              }),
-              (0, O.jsx)(`h2`, { children: `赛段与流程` }),
-              (0, O.jsx)(`p`, {
-                children: `赛制会写入赛事数据和同步包；切换后，赛程编辑器会显示对应的轮次结构。`,
-              }),
-            ],
-          }),
-          (0, O.jsxs)(`div`, {
-            className: `format-current`,
-            children: [
-              (0, O.jsx)(`small`, { children: `当前赛制` }),
-              (0, O.jsx)(`strong`, { children: n.name }),
-              (0, O.jsx)(`span`, { children: `BUILD 2.8 · ALPHA` }),
-            ],
-          }),
-        ],
-      }),
-      (0, O.jsx)(`section`, {
-        className: `format-card-grid`,
-        children: Object.values(f).map((e) =>
-          (0, O.jsxs)(
-            `button`,
-            {
-              className: `panel format-card ${e.id === n.id ? `active` : ``}`,
-              onClick: () => s(e.id),
-              children: [
-                (0, O.jsx)(`span`, {
-                  className: `format-card-number`,
-                  children: String(e.teamCount).padStart(2, `0`),
-                }),
-                (0, O.jsxs)(`div`, {
-                  children: [
-                    (0, O.jsx)(`p`, {
-                      className: `eyebrow`,
-                      children:
-                        e.kind === `groups`
-                          ? `GROUPS`
-                          : e.kind === `double`
-                            ? `DOUBLE ELIMINATION`
-                            : e.kind === `single`
-                              ? `SINGLE ELIMINATION`
-                              : `SWISS SYSTEM`,
-                    }),
-                    (0, O.jsx)(`h3`, { children: e.name }),
-                    (0, O.jsx)(`small`, { children: e.description }),
-                  ],
-                }),
-                e.id === n.id && (0, O.jsx)(`b`, { children: `已选择` }),
-              ],
-            },
-            e.id,
-          ),
-        ),
-      }),
-      O.jsx('section',{className:'panel settings-form',children:O.jsx(sdGroupRanking,{state:e,commit:t})}),
-      n.id === `world-cup-48`
-        ? (0, O.jsxs)(`section`, {
-            className: `panel format-action-card`,
-            children: [
-              (0, O.jsxs)(`div`, {
-                children: [
-                  (0, O.jsx)(`p`, {
-                    className: `eyebrow`,
-                    children: `WORLD CUP 48 · KNOCKOUT LINK`,
-                  }),
-                  (0, O.jsx)(`h3`, { children: `完整赛程后续自动配置` }),
-                  (0, O.jsx)(`p`, {
-                    children: `在赛程页手动填写 16 场 32 强后，系统会自动创建 16 强、8 强、半决赛、季军赛和决赛，并按胜负结果衔接队伍。`,
-                  }),
-                ],
-              }),
-              (0, O.jsxs)(`div`, {
-                className: `format-action-status`,
-                children: [
-                  (0, O.jsxs)(`strong`, { children: [a.length, `/16`] }),
-                  (0, O.jsx)(`small`, {
-                    children: o ? `32 强已填写完整` : `等待完整赛程对阵`,
-                  }),
-                  (0, O.jsx)(`button`, {
-                    className: `button primary`,
-                    onClick: () => {
-                      if (!o)
-                        return alert(
-                          `请先在“赛程与赛果”中建立并填写完整的 16 场 32 强对阵。`,
-                        );
-                      t((e) => (Ne(e), e), `已根据完整赛程自动生成后续轮次`);
-                    },
-                    disabled: !o,
-                    children: `根据完整赛程生成后续`,
-                  }),
-                ],
-              }),
-            ],
-          })
-        : (0, O.jsxs)(`section`, {
-            className: `panel format-action-card`,
-            children: [
-              (0, O.jsxs)(`div`, {
-                children: [
-                  (0, O.jsx)(`p`, {
-                    className: `eyebrow`,
-                    children: `SCHEDULE GENERATED`,
-                  }),
-                  (0, O.jsxs)(`h3`, { children: [n.name, `赛程已建立`] }),
-                  (0, O.jsx)(`p`, {
-                    children: `已生成该赛制需要的初始轮次。队伍、对阵、日期和比分仍可在“赛程与赛果”中逐场调整。`,
-                  }),
-                ],
-              }),
-              (0, O.jsxs)(`div`, {
-                className: `format-action-status`,
-                children: [
-                  (0, O.jsx)(`strong`, {
-                    children: e.matches.filter(
-                      (e) => e.generatedByFormat === n.id,
-                    ).length,
-                  }),
-                  (0, O.jsx)(`small`, { children: `已生成比赛` }),
-                ],
-              }),
-            ],
-          }),
-      n.id === `world-cup-48` &&
-        (0, O.jsxs)(`section`, {
-          className: `panel third-preview-card`,
-          children: [
-            (0, O.jsxs)(`div`, {
-              className: `panel-heading`,
-              children: [
-                (0, O.jsxs)(`div`, {
-                  children: [
-                    (0, O.jsx)(`p`, {
-                      className: `eyebrow`,
-                      children: `THIRD PLACE RANKING`,
-                    }),
-                    (0, O.jsx)(`h3`, { children: `小组第三名排行榜` }),
-                  ],
-                }),
-                (0, O.jsxs)(`span`, {
-                  className: `format-chip`,
-                  children: [i, ` 组`],
-                }),
-              ],
-            }),
-            (0, O.jsxs)(`div`, {
-              className: `third-preview-table`,
-              children: [
-                (0, O.jsxs)(`div`, {
-                  className: `third-preview-row heading`,
-                  children: [
-                    (0, O.jsx)(`span`, { children: `排名` }),
-                    (0, O.jsx)(`span`, { children: `小组` }),
-                    (0, O.jsx)(`span`, { children: `队伍` }),
-                    (0, O.jsx)(`span`, { children: `积分` }),
-                    (0, O.jsx)(`span`, { children: `净胜图` }),
-                    (0, O.jsx)(`span`, { children: `净胜小局` }),
-                  ],
-                }),
-                r
-                  .slice(0, 8)
-                  .map((e) =>
-                    (0, O.jsxs)(
-                      `div`,
-                      {
-                        className: `third-preview-row`,
-                        children: [
-                          (0, O.jsx)(`span`, {
-                            children: String(e.overallRank).padStart(2, `0`),
-                          }),
-                          (0, O.jsx)(`span`, { children: e.group }),
-                          (0, O.jsx)(`span`, { children: e.team.name }),
-                          (0, O.jsx)(`span`, { children: e.points }),
-                          (0, O.jsxs)(`span`, {
-                            children: [e.mapDiff > 0 ? `+` : ``, e.mapDiff],
-                          }),
-                          (0, O.jsxs)(`span`, {
-                            children: [e.roundDiff > 0 ? `+` : ``, e.roundDiff],
-                          }),
-                        ],
-                      },
-                      e.team.id,
-                    ),
-                  ),
-                !r.length &&
-                  (0, O.jsx)(`div`, {
-                    className: `manual-empty`,
-                    children: `第三名成绩会在“第三名排行榜”直播模块中按实时赛果显示。`,
-                  }),
-              ],
-            }),
-            (0, O.jsxs)(`small`, {
-              className: `hint`,
-              children: [
-                `当前已识别 `,
-                i,
-                ` 个小组；未完成比赛不会计入排行榜。`,
-              ],
-            }),
-          ],
-        }),
-    ],
-  });
-}
 function Kt({ state: e, commit: t, setLiveScene: n, meta: r }) {
   const [preview,setPreview]=(0,SDHooks.useState)(e.liveScene===`halftime`?`prematch`:e.liveScene);
   let i = e.matches.filter(
@@ -16586,27 +16360,7 @@ function Kt({ state: e, commit: t, setLiveScene: n, meta: r }) {
             }),
           }),
           SDHooks.createElement(sdStatsControls,{state:e,commit:t}),
-          ScoreDeckFlow.enabled(e) ? SDHooks.createElement(sdFlowDisplayControls,{state:e,commit:t,scene:preview}) : (0, O.jsxs)(`label`, {
-            className: `format-quick-select`,
-            children: [
-              `赛事赛制`,
-              (0, O.jsx)(`select`, {
-                value: p(e.tournament.formatId),
-                onChange: (n) => {
-                  let r = n.target.value;
-                  (r !== p(e.tournament.formatId) &&
-                    e.matches.some((e) => e.bracketRound) &&
-                    !window.confirm(
-                      `切换赛制会重建当前淘汰赛赛程，但会保留小组赛和队伍资料。是否继续？`,
-                    )) ||
-                    t((e) => Pe(e, r), `${f[r].name} 已启用`);
-                },
-                children: Object.values(f).map((e) =>
-                  (0, O.jsx)(`option`, { value: e.id, children: e.name }, e.id),
-                ),
-              }),
-            ],
-          }),
+          ScoreDeckFlow.enabled(e) && SDHooks.createElement(sdFlowDisplayControls,{state:e,commit:t,scene:preview}),
           (0, O.jsxs)(`div`, {
             className: `focus-config ${c ? `is-disabled` : ``}`,
             children: [
@@ -17281,682 +17035,9 @@ function Jt({ title: e, hint: t, src: n, team: r, onFile: i, onClear: a }) {
     ],
   });
 }
-function Yt({state:e,commit:t}){return l.createElement(ScoreDeckFlow.enabled(e)?sdFlowSchedule:sdLegacySchedule,{state:e,commit:t});}
-function sdLegacySchedule({ state: e, commit: t }) {
-  let [n, r] = (0, l.useState)(null),
-    [hideCompleted, setHideCompleted] = (0, l.useState)(
-      () => e.ui?.hideCompleted ?? (globalThis.localStorage?.getItem(`scoredeck-hide-completed`) === `true`),
-    ),
-    i = e.matches
-      .filter((e) => !e.bracketRound)
-      .slice()
-      .sort((e, t) => e.scheduleOrder - t.scheduleOrder),
-    a = e.matches
-      .filter((e) => e.bracketRound)
-      .slice()
-      .sort((e, t) => e.scheduleOrder - t.scheduleOrder),
-    visibleGroupMatches = hideCompleted
-      ? i.filter((e) => e.status !== `completed`)
-      : i,
-    visibleKnockoutMatches = hideCompleted
-      ? a.filter((e) => e.status !== `completed`)
-      : a,
-    completedMatchCount = e.matches.filter(
-      (e) => e.status === `completed`,
-    ).length,
-    o = (e) => Te(e),
-    s =
-      e.tournament.formatId === `double-elim-8`
-        ? [`DWB1`, `DWB2`, `DWB3`, `DLB1`, `DLB2`, `DLB3`, `DLB4`, `DGF`]
-        : e.tournament.formatId === `swiss-16`
-          ? [`SWISS1`, `SWISS2`, `SWISS3`, `SWISS4`, `SWISS5`]
-          : e.tournament.formatId === `single-elim-8`
-            ? [`R8`, `SF`, `THIRD`, `F`]
-            : e.tournament.formatId === `single-elim-16`
-              ? [`R16`, `QF`, `SF`, `THIRD`, `F`]
-              : [`R32`, `R16`, `QF`, `SF`, `THIRD`, `F`],
-    c = () =>
-      Array.from({ length: 5 }, (e, t) => ({
-        map: `MAP ${t + 1}`,
-        a: null,
-        b: null,
-      })),
-    u =
-      e.tournament.formatId === `double-elim-8`
-        ? `DWB1`
-        : e.tournament.formatId === `swiss-16`
-          ? `SWISS1`
-          : e.tournament.formatId === `single-elim-16`
-            ? `R16`
-            : e.tournament.formatId === `single-elim-8`
-              ? `R8`
-              : `R32`,
-    f = () => Math.max(0, ...e.matches.map((e) => e.scheduleOrder || 0)) + 1,
-    p = (e, t) => {
-      let n =
-        e === `R32`
-          ? Math.floor(t / 4)
-          : e === `R16`
-            ? Math.floor(t / 2)
-            : e === `R8`
-              ? t < 2
-                ? 0
-                : 2
-              : e === `QF`
-                ? t
-                : e === `SF`
-                  ? t * 2
-                  : 0;
-      return `Q${Math.min(4, n + 1)}`;
-    },
-    m = (e) =>
-      t(
-        (t) => {
-          let n = `${e === `group` ? `group` : `ko`}-manual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            r = Math.max(0, ...t.matches.map((e) => e.scheduleOrder || 0)) + 1;
-          if (e === `group`) {
-            let e = t.selectedGroup || `A`,
-              i =
-                t.matches.filter((t) => !t.bracketRound && t.group === e)
-                  .length + 1;
-            t.matches.push({
-              id: n,
-              group: e,
-              stage: `GROUP ${e}`,
-              round: `ROUND ${i}`,
-              date: ``,
-              time: ``,
-              teamAId: ``,
-              teamBId: ``,
-              scoreA: 0,
-              scoreB: 0,
-              mapScores: c(),
-              status: `tbd`,
-              bestOf: 3,
-              scheduleOrder: r,
-            });
-          } else {
-            let e = u,
-              i = t.matches.filter((t) => t.bracketRound === e).length,
-              a = o(e);
-            t.matches.push({
-              id: n,
-              group: ``,
-              stage: a,
-              round: `${a} · MATCH ${i + 1}`,
-              date: ``,
-              time: ``,
-              teamAId: ``,
-              teamBId: ``,
-              scoreA: 0,
-              scoreB: 0,
-              mapScores: c(),
-              status: `tbd`,
-              bestOf: 3,
-              scheduleOrder: r,
-              bracketRound: e,
-              bracketIndex: i,
-              bracketRegion: p(e, i),
-            });
-          }
-          return (
-            (t.selectedMatchId ||= n),
-            t.tournament.formatId === `world-cup-48` && Ne(t),
-            ke(t),
-            t
-          );
-        },
-        e === `group` ? `已添加一场小组赛` : `已添加一场淘汰赛`,
-      ),
-    h = (e, n) =>
-      t((t) => {
-        let r = t.matches.find((t) => t.id === e);
-        return (
-          r && Object.assign(r, n),
-          r && ScoreDeckRules.normalizeMatch(r, {forceMaps: Object.hasOwn(n, `mapScores`) || Object.hasOwn(n, `bestOf`)}),
-          t.tournament.formatId === `world-cup-48` && Ne(t),
-          ke(t),
-          t
-        );
-      }),
-    g = (e, n, r) =>
-      t(
-        (t) => {
-          let i = t.matches.find((t) => t.id === e);
-          return (
-            (i[n] = r),
-            (i.status =
-              i.teamAId && i.teamBId
-                ? i.status === `tbd`
-                  ? `upcoming`
-                  : i.status
-                : `tbd`),
-            t.tournament.formatId === `world-cup-48` && Ne(t),
-            ke(t),
-            t
-          );
-        },
-        r ? `对阵已写入赛程数据库` : `对阵已恢复为未确定`,
-      ),
-    _ = (e, t, n, r) => {
-      let i = structuredClone(e.mapScores);
-      ((i[t][n] = r === `` ? null : Number(r)), h(e.id, { mapScores: i }));
-    },
-    y = (e, t) =>
-      h(e.id, {
-        group: t,
-        stage: `GROUP ${t}`,
-        teamAId: ``,
-        teamBId: ``,
-        status: `tbd`,
-      }),
-    b = (e, n) =>
-      t((t) => {
-        let r = t.matches.find((t) => t.id === e.id),
-          i = t.matches.filter(
-            (t) => t.id !== e.id && t.bracketRound === n,
-          ).length,
-          a = o(n);
-        return (
-          (r.bracketRound = n),
-          (r.bracketIndex = i),
-          (r.bracketRegion = p(n, i)),
-          (r.stage = a),
-          (r.round = `${a} · MATCH ${i + 1}`),
-          ke(t),
-          t
-        );
-      }),
-    x = (e) =>
-      t(
-        (t) => (
-          (t.matches = t.matches.filter((t) => t.id !== e)),
-          t.selectedMatchId === e &&
-            (t.selectedMatchId = t.matches[0]?.id || ``),
-          t
-        ),
-        `比赛已从赛程中删除`,
-      ),
-    ee = (n, i) => {
-      let a = v(e, n.teamAId),
-        c = v(e, n.teamBId),
-        l =
-          i === `group` ? e.teams.filter((e) => e.group === n.group) : e.teams;
-      return (0, O.jsxs)(
-        `article`,
-        {
-          className: `manual-match-card ${n.id === e.selectedMatchId ? `selected` : ``}`,
-          children: [
-            (0, O.jsxs)(`div`, {
-              className: `manual-match-meta`,
-              children: [
-                (0, O.jsxs)(`label`, {
-                  children: [
-                    `全局顺序`,
-                    (0,O.jsx)(sdTextField, {
-                      type: `number`,
-                      min: `1`,
-                      value: n.scheduleOrder || f(),
-                      onChange: (e) =>
-                        h(n.id, {
-                          scheduleOrder: Math.max(1, Number(e.target.value)),
-                        }),
-                    }),
-                  ],
-                }),
-                i === `group`
-                  ? (0, O.jsxs)(`label`, {
-                      children: [
-                        `比赛小组`,
-                        (0, O.jsx)(`select`, {
-                          value: n.group,
-                          onChange: (e) => y(n, e.target.value),
-                          children: d.map((e) =>
-                            (0, O.jsxs)(
-                              `option`,
-                              { value: e, children: [e, ` 组`] },
-                              e,
-                            ),
-                          ),
-                        }),
-                      ],
-                    })
-                  : (0, O.jsxs)(O.Fragment, {
-                      children: [
-                        (0, O.jsxs)(`label`, {
-                          children: [
-                            `淘汰轮次`,
-                            (0, O.jsx)(`select`, {
-                              value: n.bracketRound,
-                              disabled: !!(n.sourceA || n.sourceB),
-                              onChange: (e) => b(n, e.target.value),
-                              children: s.map((e) =>
-                                (0, O.jsx)(
-                                  `option`,
-                                  { value: e, children: o(e) },
-                                  e,
-                                ),
-                              ),
-                            }),
-                          ],
-                        }),
-                        (0, O.jsxs)(`label`, {
-                          children: [
-                            `轮内序号`,
-                            (0,O.jsx)(sdTextField, {
-                              type: `number`,
-                              min: `1`,
-                              value: (n.bracketIndex ?? 0) + 1,
-                              onChange: (e) => {
-                                let t = Math.max(0, Number(e.target.value) - 1);
-                                h(n.id, {
-                                  bracketIndex: t,
-                                  bracketRegion: p(n.bracketRound, t),
-                                });
-                              },
-                            }),
-                          ],
-                        }),
-                      ],
-                    }),
-                (0, O.jsxs)(`label`, {
-                  children: [
-                    `轮次名称`,
-                    (0,O.jsx)(sdTextField, {
-                      value: n.round,
-                      onChange: (e) => h(n.id, { round: e.target.value }),
-                    }),
-                  ],
-                }),
-                (0, O.jsxs)(`label`, {
-                  children: [
-                    `日期`,
-                    (0,O.jsx)(sdTextField, {
-                      type: `date`,
-                      value: n.date,
-                      onChange: (e) => h(n.id, { date: e.target.value }),
-                    }),
-                  ],
-                }),
-                (0, O.jsxs)(`label`, {
-                  children: [
-                    `时间`,
-                    (0,O.jsx)(sdTextField, {
-                      type: `time`,
-                      value: n.time,
-                      onChange: (e) => h(n.id, { time: e.target.value }),
-                    }),
-                  ],
-                }),
-                (0, O.jsxs)(`label`, {
-                  children: [
-                    `赛制`,
-                    (0, O.jsxs)(`select`, {
-                      value: n.bestOf,
-                      onChange: (e) =>
-                        h(n.id, { bestOf: Number(e.target.value) }),
-                      children: [
-                        (0, O.jsx)(`option`, { value: 1, children: `BO1` }),
-                        l.createElement(sdMatchData,{state:e,match:n,commit:t}),
-                !n.bracketRound && (0, O.jsx)(`option`, { value: 2, children: `BO2` }),
-                        (0, O.jsx)(`option`, { value: 3, children: `BO3` }),
-                        (0, O.jsx)(`option`, { value: 5, children: `BO5` }),
-                      ],
-                    }),
-                  ],
-                }),
-                (0, O.jsxs)(`label`, {
-                  children: [
-                    `状态`,
-                    (0, O.jsxs)(`select`, {
-                      value: n.status,
-                      onChange: (e) => h(n.id, { status: e.target.value }),
-                      children: [
-                        (0, O.jsx)(`option`, {
-                          value: `tbd`,
-                          children: `未确定`,
-                        }),
-                        (0, O.jsx)(`option`, {
-                          value: `upcoming`,
-                          children: `未开始`,
-                        }),
-                        (0, O.jsx)(`option`, {
-                          value: `live`,
-                          children: `进行中`,
-                        }),
-                        (0, O.jsx)(`option`, {
-                          value: `completed`,
-                          children: `已结束`,
-                        }),
-                      ],
-                    }),
-                  ],
-                }),
-                (0, O.jsx)(`button`, {
-                  className: `text-button danger`,
-                  onClick: () => x(n.id),
-                  children: `删除比赛`,
-                }),
-              ],
-            }),
-            (0, O.jsxs)(`div`, {
-              className: `manual-match-body`,
-              children: [
-                (0, O.jsxs)(`div`, {
-                  className: `manual-matchup`,
-                  children: [
-                    (0, O.jsxs)(`label`, {
-                      children: [
-                        i === `group` ? `${n.group} 组队伍 A` : `队伍 A`,
-                        (0, O.jsxs)(`span`, {
-                          children: [
-                            (0, O.jsx)(j, { team: a }),
-                            (0, O.jsxs)(`select`, {
-                              value: n.teamAId,
-                              disabled: !!n.sourceA,
-                              onChange: (e) =>
-                                g(n.id, `teamAId`, e.target.value),
-                              children: [
-                                (0, O.jsx)(`option`, {
-                                  value: ``,
-                                  children: `待定`,
-                                }),
-                                l
-                                  .filter((e) => e.id !== n.teamBId)
-                                  .map((e) =>
-                                    (0, O.jsxs)(
-                                      `option`,
-                                      {
-                                        value: e.id,
-                                        children: [E(e), ` · `, e.name],
-                                      },
-                                      e.id,
-                                    ),
-                                  ),
-                              ],
-                            }),
-                          ],
-                        }),
-                      ],
-                    }),
-                    (0, O.jsx)(`b`, { children: `VS` }),
-                    (0, O.jsxs)(`label`, {
-                      children: [
-                        i === `group` ? `${n.group} 组队伍 B` : `队伍 B`,
-                        (0, O.jsxs)(`span`, {
-                          children: [
-                            (0, O.jsxs)(`select`, {
-                              value: n.teamBId,
-                              disabled: !!n.sourceB,
-                              onChange: (e) =>
-                                g(n.id, `teamBId`, e.target.value),
-                              children: [
-                                (0, O.jsx)(`option`, {
-                                  value: ``,
-                                  children: `待定`,
-                                }),
-                                l
-                                  .filter((e) => e.id !== n.teamAId)
-                                  .map((e) =>
-                                    (0, O.jsxs)(
-                                      `option`,
-                                      {
-                                        value: e.id,
-                                        children: [E(e), ` · `, e.name],
-                                      },
-                                      e.id,
-                                    ),
-                                  ),
-                              ],
-                            }),
-                            (0, O.jsx)(j, { team: c }),
-                          ],
-                        }),
-                      ],
-                    }),
-                  ],
-                }),
-                (n.sourceA || n.sourceB) &&
-                  (0, O.jsx)(`small`, {
-                    className: `match-source-note`,
-                    children: `队伍将根据上轮比赛结果自动衔接`,
-                  }),
-                l.createElement(sdMatchData,{state:e,match:n,commit:t}),
-                !n.bracketRound && (0, O.jsx)(`p`, {className:`hint`,children:n.bestOf===2 ? `BO2 固定两图：胜 3 分，平局双方各 1 分。逐图比分自动汇总；未完成两图不能标记已结束。` : `小组赛胜 3 分；填写逐图比分后自动汇总地图比分和小分差。`}),
-                (0, O.jsxs)(`div`, {
-                  className: `manual-series-score`,
-                  children: [
-                    (0, O.jsx)(`small`, { children: `系列赛大比分` }),
-                    (0, O.jsxs)(`span`, {
-                      children: [
-                        (0,O.jsx)(sdTextField, {
-                          type: `text`,
-                          inputMode: `text`,
-                          placeholder: `0 / WW / FF`,
-                          value: n.scoreA,
-                          onChange: (e) =>
-                            h(n.id, {
-                              scoreA: normalizeSeriesScore(e.target.value),
-                            }),
-                        }),
-                        (0, O.jsx)(`b`, { children: `:` }),
-                        (0,O.jsx)(sdTextField, {
-                          type: `text`,
-                          inputMode: `text`,
-                          placeholder: `0 / WW / FF`,
-                          value: n.scoreB,
-                          onChange: (e) =>
-                            h(n.id, {
-                              scoreB: normalizeSeriesScore(e.target.value),
-                            }),
-                        }),
-                      ],
-                    }),
-                  ],
-                }),
-                (0, O.jsx)(`div`, {
-                  className: `manual-map-scores`,
-                  children: n.mapScores
-                    .slice(0, n.bestOf)
-                    .map((e, t) =>
-                      (0, O.jsxs)(
-                        `label`,
-                        {
-                          children: [
-                            (0, O.jsx)(`span`, {
-                              children: e.map || `M${t + 1}`,
-                            }),
-                            (0,O.jsx)(sdTextField, {
-                              type: `number`,
-                              min: `0`,
-                              placeholder: `—`,
-                              value: e.a ?? ``,
-                              onChange: (e) => _(n, t, `a`, e.target.value),
-                            }),
-                            (0, O.jsx)(`b`, { children: `:` }),
-                            (0,O.jsx)(sdTextField, {
-                              type: `number`,
-                              min: `0`,
-                              placeholder: `—`,
-                              value: e.b ?? ``,
-                              onChange: (e) => _(n, t, `b`, e.target.value),
-                            }),
-                          ],
-                        },
-                        t,
-                      ),
-                    ),
-                }),
-                (0, O.jsxs)(`div`, {
-                  className: `manual-match-actions`,
-                  children: [
-                    (0, O.jsx)(`button`, {
-                      className: `button secondary`,
-                      onClick: () => r(n.id),
-                      children: `逐图赛果与阵容`,
-                    }),
-                    (0, O.jsx)(`button`, {
-                      className: `button tiny`,
-                      onClick: () =>
-                        t(
-                          (e) => (
-                            (e.selectedMatchId = n.id),
-                            n.group && (e.selectedGroup = n.group),
-                            e
-                          ),
-                          `主对阵已更新`,
-                        ),
-                      children:
-                        n.id === e.selectedMatchId ? `当前主赛` : `设为主赛`,
-                    }),
-                  ],
-                }),
-              ],
-            }),
-          ],
-        },
-        n.id,
-      );
-    };
-  return (0, O.jsxs)(`div`, {
-    className: `workspace single-workspace`,
-    children: [
-      (0, O.jsxs)(`section`, {
-        className: `panel manual-schedule-panel`,
-        children: [
-          (0, O.jsxs)(`div`, {
-            className: `panel-heading`,
-            children: [
-              (0, O.jsxs)(`div`, {
-                children: [
-                  (0, O.jsx)(`p`, {
-                    className: `eyebrow`,
-                    children: `MANUAL MATCH BUILDER`,
-                  }),
-                  (0, O.jsx)(`h2`, { children: `手动赛程编排` }),
-                ],
-              }),
-              (0, O.jsxs)(`div`, {
-                className: `manual-schedule-heading-actions`,
-                children: [
-                  (0, O.jsxs)(`label`, {
-                    className: `manual-completed-filter`,
-                    children: [
-                      (0,O.jsx)(sdTextField, {
-                        type: `checkbox`,
-                        checked: hideCompleted,
-                        onChange: (e) => {
-                          const checked = e.target.checked;
-                          setHideCompleted(checked);
-                          globalThis.localStorage?.setItem(`scoredeck-hide-completed`,String(checked));
-                          t(s=>{s.ui={...s.ui,hideCompleted:checked};return s;});
-                        },
-                      }),
-                      (0, O.jsx)(`span`, {
-                        children: `隐藏所有已结束赛程`,
-                      }),
-                      completedMatchCount > 0 &&
-                        (0, O.jsx)(`small`, {
-                          children: `${completedMatchCount} 场`,
-                        }),
-                    ],
-                  }),
-                  (0, O.jsx)(`span`, {
-                    className: `hint`,
-                    children: `逐场添加，修改后自动保存到本机数据库`,
-                  }),
-                ],
-              }),
-            ],
-          }),
-          (0, O.jsxs)(`section`, {
-            className: `manual-schedule-section`,
-            children: [
-              (0, O.jsxs)(`div`, {
-                className: `manual-section-heading`,
-                children: [
-                  (0, O.jsxs)(`div`, {
-                    children: [
-                      (0, O.jsx)(`p`, {
-                        className: `eyebrow`,
-                        children: `GROUP STAGE`,
-                      }),
-                      (0, O.jsx)(`h3`, { children: `小组赛` }),
-                      (0, O.jsx)(`small`, {
-                        children: `每场先选小组，再从该小组的四支队伍中选择对阵。`,
-                      }),
-                    ],
-                  }),
-                  (0, O.jsx)(`button`, {
-                    className: `button primary`,
-                    onClick: () => m(`group`),
-                    children: `＋ 添加一场小组赛`,
-                  }),
-                ],
-              }),
-              visibleGroupMatches.length
-                ? visibleGroupMatches.map((e) => ee(e, `group`))
-                : (0, O.jsx)(`div`, {
-                    className: `manual-empty`,
-                    children:
-                      hideCompleted && i.length
-                        ? `已隐藏全部结束的小组赛。`
-                        : `尚未添加小组赛，点击右上角逐场建立。`,
-                  }),
-            ],
-          }),
-          (0, O.jsxs)(`section`, {
-            className: `manual-schedule-section knockout`,
-            children: [
-              (0, O.jsxs)(`div`, {
-                className: `manual-section-heading`,
-                children: [
-                  (0, O.jsxs)(`div`, {
-                    children: [
-                      (0, O.jsx)(`p`, {
-                        className: `eyebrow`,
-                        children: `KNOCKOUT STAGE`,
-                      }),
-                      (0, O.jsx)(`h3`, { children: `淘汰赛` }),
-                      (0, O.jsx)(`small`, {
-                        children: `每场独立选择淘汰轮次、轮内序号和参赛队伍。`,
-                      }),
-                    ],
-                  }),
-                  (0, O.jsx)(`button`, {
-                    className: `button primary`,
-                    onClick: () => m(`knockout`),
-                    children: `＋ 添加一场淘汰赛`,
-                  }),
-                ],
-              }),
-              visibleKnockoutMatches.length
-                ? visibleKnockoutMatches.map((e) => ee(e, `knockout`))
-                : (0, O.jsx)(`div`, {
-                    className: `manual-empty`,
-                    children:
-                      hideCompleted && a.length
-                        ? `已隐藏全部结束的淘汰赛。`
-                        : `尚未添加淘汰赛，点击右上角逐场建立。`,
-                  }),
-            ],
-          }),
-        ],
-      }),
-      n &&
-        e.matches.find((e) => e.id === n) &&
-        (0, O.jsx)(
-          Xt,
-          {
-            state: e,
-            match: e.matches.find((e) => e.id === n),
-            commit: t,
-            onClose: () => r(null),
-          },
-          n,
-        ),
-    ],
-  });
+function Yt({state:e,commit:t}){
+  if(!ScoreDeckFlow.enabled(e)||!ScoreDeckFlow.isActive(e))return O.jsx('section',{className:'panel',children:'请先在赛事设置中配置自定义赛制并校验启用。'});
+  return l.createElement(sdFlowSchedule,{state:e,commit:t});
 }
 function Xt({ state: e, match: t, commit: n, onClose: r }) {
   const editBase=(0,l.useRef)(structuredClone(e));
@@ -19585,33 +18666,6 @@ function en({ state: e, commit: t, meta: n }) {
                   }),
                 ],
               }),
-              !ScoreDeckFlow.enabled(e) && (0, O.jsxs)(`label`, {
-                children: [
-                  `赛制模式`,
-                  (0, O.jsx)(`select`, {
-                    value: p(e.tournament.formatId),
-                    onChange: (n) => {
-                      let r = n.target.value;
-                      (r !== p(e.tournament.formatId) &&
-                        e.matches.some((e) => e.bracketRound) &&
-                        !window.confirm(
-                          `切换赛制会重建当前淘汰赛赛程，但会保留小组赛和队伍资料。是否继续？`,
-                        )) ||
-                        t((e) => Pe(e, r), `${f[r].name} 已启用`);
-                    },
-                    children: Object.values(f).map((e) =>
-                      (0, O.jsx)(
-                        `option`,
-                        { value: e.id, children: e.name },
-                        e.id,
-                      ),
-                    ),
-                  }),
-                  (0, O.jsx)(`small`, {
-                    children: f[p(e.tournament.formatId)].description,
-                  }),
-                ],
-              }),
               O.jsx(sdGroupRanking,{state:e,commit:t}),
               (0, O.jsxs)(`label`, {
                 children: [
@@ -20079,7 +19133,7 @@ function sdFlowEditor({state}){
  const add=type=>act(s=>{const st=F.addStage(s,type);setSelected(st.id);setTab('teams');});
  const outputPort=(stageId,key)=>{setSelected(stageId);setTab('routes');setLink({stageId,key});};
  const targetPort=to=>{if(link){act(s=>F.setRoute(s,link.stageId,link.key,to));setLink(null);}};
- if(!F.enabled(state))return h('section',{className:'panel sf-editor'},h('h2',null,'赛事流程编辑器'),h('p',null,'当前为旧版赛事。原赛程仍可使用；新建流程将保留队伍与素材，并保存旧赛程快照。'),h(sdFlowButton,{primary:true,onClick:()=>{if(confirm('建立空白赛事流程？当前赛程会保存在内部快照中，可在此恢复。'))act(s=>F.blank(s));}},'建立空白流程'));
+ if(!F.enabled(state))return h('section',{className:'panel sf-editor'},h('h2',null,'赛事流程编辑器'),h('p',null,'当前存档使用旧版赛制。请建立自定义流程后配置并启用；队伍与素材会保留，原赛程将另存为备份。'),h(sdFlowButton,{primary:true,onClick:()=>{if(confirm('建立空白赛事流程？当前赛程会保存在内部快照中。'))act(s=>F.blank(s));}},'建立空白流程'));
  const notes=F.activationErrors(state),updateStage=patch=>act(s=>Object.assign(F.stageOf(s,stage.id),patch));
  return h('div',{className:'sf-editor'},
  h('section',{className:'panel sf-heading'},h('div',null,h('h2',null,'赛事流程'),h('p',null,'设置实时保存 · 每条晋级路径须通向终结状态，校验通过后方可启用。')),h('div',{className:'sf-actions'},...['group','swiss','playoff','custom'].map(type=>h(sdFlowButton,{key:type,primary:type==='group',onClick:()=>add(type)},'+ '+({group:'小组赛',swiss:'瑞士轮',playoff:'Playoff',custom:'单场对决'}[type]))))),
@@ -20096,8 +19150,7 @@ function sdFlowEditor({state}){
  tab==='routes'&&h('div',null,h('p',{className:'hint'},'循环赛按最终名次；淘汰赛按每场胜败。每个来源只能有一个去向，每个位置只能有一个来源。'),...F.outputs(state,stage).map(out=>h(sdFlowRoute,{key:out.key,state,stage,out,act,selected:link?.stageId===stage.id&&link?.key===out.key,onSelect:()=>outputPort(stage.id,out.key)})))
  )),
  stages.length>0&&h('section',{className:'panel sf-graph-panel'},h('div',{className:'sf-heading'},h('div',null,h('h3',null,'赛程图'),h('p',null,link?'已选来源。点击空白 A/B 位置或后续赛段的入场位置完成连线。':'点击比赛的「胜」「负」或小组名次，再点击目标位置连线；也可使用上方去向列表。')),h('div',{className:'sf-actions'},link&&h(sdFlowButton,{onClick:()=>setLink(null)},'取消连线'),h(sdFlowButton,{onClick:()=>setAllGraph(!allGraph)},allGraph?'仅看当前赛段':'查看完整流程'),...['normal','final','thirdPlace'].map(role=>h(sdFlowButton,{key:role,onClick:()=>{setTab('modules');act(s=>F.addMatch(s,stage.id,role));}},'+ '+({normal:'普通对阵',final:'决赛',thirdPlace:'季军赛'}[role]))))),h(sdFlowGraph,{state,stageId:allGraph?'':stage?.id,onSource:outputPort,onTarget:targetPort,link})),
- notes.length>0&&h('details',{className:'panel sf-notes'},h('summary',null,`${notes.length} 项配置未通过启用检查`),...notes.map((n,i)=>h('p',{key:i},n))),
- state.legacyFlowBackup&&h('details',{className:'panel'},h('summary',null,'旧赛事快照'),h(sdFlowButton,{onClick:()=>{if(confirm('恢复旧赛程？当前自定义流程将被替换，请先导出完整包。'))act(s=>{const old=s.legacyFlowBackup;s.tournament=old.tournament;s.matches=old.matches;delete s.stages;delete s.legacyFlowBackup;});}},'恢复旧赛程')));
+ notes.length>0&&h('details',{className:'panel sf-notes'},h('summary',null,`${notes.length} 项配置未通过启用检查`),...notes.map((n,i)=>h('p',{key:i},n))));
 }
 function sdFlowConfig({stage,state,act}){
  const h=l.createElement,F=ScoreDeckFlow,[draft,setDraft]=l.useState(()=>({...structuredClone(stage),...structuredClone(stage.templateDraft||{})}));
@@ -20167,14 +19220,14 @@ function sdFlowGraph({state,stageId='',onSource,onTarget,link,output=false}){
  return h('div',{className:output?'sf-graph-output':'sf-graph-scroll'},svg);
 }
 function sdFlowSchedule({state,commit}){
- const h=l.createElement,F=ScoreDeckFlow,[filter,setFilter]=l.useState(state.selectedStageId||state.stages?.[0]?.id||''),[edit,setEdit]=l.useState(null),[hide,setHide]=l.useState(false),[error,setError]=l.useState('');
+ const h=l.createElement,F=ScoreDeckFlow,[filter,setFilter]=l.useState(state.selectedStageId||state.stages?.[0]?.id||''),[edit,setEdit]=l.useState(null),[resultFilter,setResultFilter]=l.useState('all'),[error,setError]=l.useState('');
  const act=fn=>SDClient.mutate(s=>{fn(s);F.assertValid(s);F.reconcile(s);F.refreshLifecycle(s);return s;}).then(()=>setError('')).catch(e=>setError(e.message));
- const matches=state.matches.filter(m=>(!filter||m.stageId===filter)&&!m.inactive&&(!hide||m.status!=='completed')).sort((a,b)=>a.scheduleOrder-b.scheduleOrder),idx=F.indexes(state);
+ const matches=state.matches.filter(m=>(!filter||m.stageId===filter)&&!m.inactive&&sdResultVisible(m,resultFilter)).sort((a,b)=>a.scheduleOrder-b.scheduleOrder),idx=F.indexes(state);
  const name=id=>state.teams.find(t=>t.id===id)?.name;
- return h('div',{className:'sf-editor'},h('section',{className:'panel sf-heading'},h('h2',null,'赛程与赛果'),h('div',{className:'sf-actions'},h(sdFlowSelect,{label:'筛选赛段',value:filter,options:[['','全部赛段'],...(state.stages||[]).map(st=>[st.id,st.name])],onChange:setFilter}),h(sdFlowButton,{onClick:()=>setHide(!hide)},hide?'显示已完成':'隐藏已完成'),h(sdFlowButton,{disabled:!filter,onClick:()=>act(s=>F.addMatch(s,filter))},'+ 单场对决'))),error&&h('p',{role:'alert',className:'sf-error'},error),!F.isActive(state)&&h('p',{className:'sf-warning'},'当前赛事为草稿。请在赛事设置中完成去向配置并“校验并启用”，然后录入赛果。'),!matches.length&&h('section',{className:'panel sf-empty'},'尚无比赛。请在赛事设置中添加赛段。'),...matches.map(m=>{const st=F.stageOf(state,m.stageId);return h('section',{key:m.id,className:'panel sf-match-card'},h('div',{className:'sf-match-head'},h('strong',null,`${st.name} / ${m.round} · ${F.shortId(m)}`),h('span',null,m.autoBye?'自动轮空':({tbd:'等待队伍',upcoming:'待赛',live:'进行中',completed:'已完成'}[m.status])),h(sdFlowButton,{onClick:()=>act(s=>{s.selectedMatchId=m.id;s.selectedStageId=m.stageId;})},state.selectedMatchId===m.id?'当前主对阵':'设为主对阵')),h('div',{className:'sf-match-content'},h('div',null,...['A','B'].map(side=>h('div',{key:side,className:'sf-match-team'},h('b',null,name(m[`team${side}Id`])||F.label(state,st,idx.ins.get(`${m.id}/${side}`)||m[`entry${side}`])),h('strong',null,m.autoBye?'—':m[`score${side}`])))),h('div',{className:'sf-actions'},h(sdFlowSelect,{label:`${F.shortId(m)} BO`,value:String(m.bestOf),options:(F.isRoundRobin(st,m)?[1,2,3,5]:[1,3,5]).map(n=>[String(n),`BO${n}`]),onChange:v=>act(s=>{const x=s.matches.find(x=>x.id===m.id);x.bestOf=Number(v);})}),h(sdFlowButton,{primary:true,disabled:!F.isActive(state)||!m.teamAId||!m.teamBId||m.autoBye,onClick:()=>setEdit(m.id)},'录入比分 / 数据'))),
+ return h('div',{className:'sf-editor'},h('section',{className:'panel sf-heading'},h('h2',null,'赛程与赛果'),h('div',{className:'sf-actions'},h(sdFlowSelect,{label:'筛选赛段',value:filter,options:[['','全部赛段'],...(state.stages||[]).map(st=>[st.id,st.name])],onChange:setFilter}),h(sdFlowSelect,{label:'完成状态',value:resultFilter,options:[['hide','隐藏已完成'],['all','显示已完成'],['completed','只显示已完成']],onChange:setResultFilter}),h(sdFlowButton,{disabled:!filter,onClick:()=>act(s=>F.addMatch(s,filter))},'+ 单场对决'))),error&&h('p',{role:'alert',className:'sf-error'},error),!F.isActive(state)&&h('p',{className:'sf-warning'},'当前赛事为草稿。请在赛事设置中完成去向配置并“校验并启用”，然后录入赛果。'),!matches.length&&h('section',{className:'panel sf-empty'},'尚无比赛。请在赛事设置中添加赛段。'),...matches.map(m=>{const st=F.stageOf(state,m.stageId);return h('section',{key:m.id,className:'panel sf-match-card'},h('div',{className:'sf-match-head'},h('strong',null,`${st.name} / ${m.round} · ${F.shortId(m)}`),h('span',null,m.autoBye?'自动轮空':({tbd:'等待队伍',upcoming:'待赛',live:'进行中',completed:'已完成'}[m.status])),h(sdFlowButton,{onClick:()=>act(s=>{s.selectedMatchId=m.id;s.selectedStageId=m.stageId;})},state.selectedMatchId===m.id?'当前主对阵':'设为主对阵')),h('div',{className:'sf-match-content'},h('div',null,...['A','B'].map(side=>h('div',{key:side,className:'sf-match-team'},h('b',null,name(m[`team${side}Id`])||F.label(state,st,idx.ins.get(`${m.id}/${side}`)||m[`entry${side}`])),h('strong',null,m.autoBye?'—':m[`score${side}`])))),h('div',{className:'sf-actions'},h(sdFlowSelect,{label:`${F.shortId(m)} BO`,value:String(m.bestOf),options:(F.isRoundRobin(st,m)?[1,2,3,5]:[1,3,5]).map(n=>[String(n),`BO${n}`]),onChange:v=>act(s=>{const x=s.matches.find(x=>x.id===m.id);x.bestOf=Number(v);})}),h(sdFlowButton,{primary:true,disabled:!F.isActive(state)||!m.teamAId||!m.teamBId||m.autoBye,onClick:()=>setEdit(m.id)},'录入比分 / 数据'))),
  (!F.isRoundRobin(st,m)&&(st.type!=='swiss'||m.custom))&&h('details',{className:'sf-entry-edit'},h('summary',null,'入场来源与连线位置'),h('div',{className:'sf-actions'},...['A','B'].map(side=>h(sdFlowSelect,{key:side,label:`${F.shortId(m)} ${side}入场`,disabled:idx.ins.has(`${m.id}/${side}`),value:JSON.stringify(m[`entry${side}`]||null),options:[[JSON.stringify(null),idx.ins.has(`${m.id}/${side}`)?F.label(state,st,idx.ins.get(`${m.id}/${side}`)):'等待连线'],...st.slots.map(sl=>[JSON.stringify({kind:'slot',slotId:sl.id}),sl.label]),...(m.custom?state.teams.map(t=>[JSON.stringify({kind:'team',teamId:t.id}),t.name]):[]),[JSON.stringify({kind:'bye'}),'明确轮空']],onChange:value=>act(s=>{s.matches.find(x=>x.id===m.id)[`entry${side}`]=JSON.parse(value);})})),h(sdFlowButton,{onClick:()=>{if(confirm('删除这场对阵及其去向？'))act(s=>F.removeMatch(s,m.id));}},'删除单场对决'))),
  h('div',{className:'sf-actions'},h(sdFlowSelect,{label:`${F.shortId(m)} 比赛状态`,value:m.status,disabled:!F.isActive(state)||m.autoBye||!m.teamAId||!m.teamBId,options:[['tbd','待定'],['upcoming','待赛'],['live','进行中'],['completed','已完成']],onChange:value=>act(s=>{const x=s.matches.find(x=>x.id===m.id);x.status=value;if(value==='completed'){ScoreDeckRules.normalizeMatch(x);if(x.status!=='completed')throw Error('比分未达到完赛条件，请先录入地图比分或正确的大比分');}})}),...['A','B'].map(side=>h(sdFlowInput,{key:side,label:`${F.shortId(m)} ${side}大比分`,value:m[`score${side}`],disabled:!F.isActive(state)||m.autoBye||!m.teamAId||!m.teamBId,onChange:value=>act(s=>{const x=s.matches.find(x=>x.id===m.id);if(x.mapScores.some(ScoreDeckRules.validMap))throw Error('已有地图比分，请在“录入比分 / 数据”中修改以保持统计一致');x[`score${side}`]=/^(W|F|WW|FF)$/i.test(value)?value.toUpperCase():Math.max(0,Number(value)||0);})}))),
- h(sdMatchData,{state,match:m,commit}),
+ h(sdResultExports,{state,match:m}),h(sdMatchData,{state,match:m,commit}),
  m.resultWarning&&h('p',{className:'sf-warning'},m.resultWarning),
  h('div',{className:'sf-actions'},h(sdFlowInput,{label:`${F.shortId(m)} 日期`,type:'date',value:m.date||'',onChange:value=>act(s=>{s.matches.find(x=>x.id===m.id).date=value;})}),h(sdFlowInput,{label:`${F.shortId(m)} 时间`,type:'time',value:m.time||'',onChange:value=>act(s=>{s.matches.find(x=>x.id===m.id).time=value;})})),m.resultInvalidated&&h('small',{className:'sf-warning'},'参赛队伍或上游赛果已变化；原赛果已清除，请核对后重新录入。'));}),edit&&state.matches.some(m=>m.id===edit)&&h(Xt,{state,match:state.matches.find(m=>m.id===edit),commit:(fn)=>act(fn),onClose:()=>setEdit(null)}));
 }
@@ -20307,4 +19360,77 @@ function sdMapBP({state}){
  return h('section',{className:'scene sd-bp-scene'},h('header',null,h('span',null,state.tournament.name),h('span',null,`${m?.round||'当前对阵'} · BO${m?.bestOf||'—'}`)),
   h('div',{className:'sd-veto-heading'},heading('A'),h('div',{className:'sd-veto-title'},h('h1',null,'MAP VETO')),heading('B')),
   m?h('div',{className:'sd-veto-cards'},...cards):h('p',{className:'sd-veto-empty'},'暂无对阵'));
+}
+
+// Per-map result exports use stored match data, including previously collected GSI stats.
+function sdResultVisible(match, mode) {
+ return mode==='completed'?match.status==='completed':mode==='hide'?match.status!=='completed':true;
+}
+function sdResultMaps(match) {
+ if(match.status!=='completed'||match.autoBye)return [];
+ const count=Number(match.scoreA)+Number(match.scoreB);
+ const maps=Array.from({length:Number(match.bestOf)||1},(_,index)=>{
+  const score=match.mapScores?.[index]||{},detail=match.mapDetails?.[index]||{};
+  return {index,map:score.map||detail.map||`MAP ${index+1}`,a:score.a??detail.a,b:score.b??detail.b,detail};
+ });
+ const played=maps.filter(ScoreDeckRules.validMap);
+ return played.length?played:maps.slice(0,Number.isFinite(count)?Math.max(0,count):0);
+}
+function sdResultModel(state,match,map) {
+ const number=value=>value!==null&&value!==''&&Number.isFinite(Number(value))?Number(value):0;
+ return {...map,title:state.tournament?.name||'比赛战报',series:`${match.scoreA??0} : ${match.scoreB??0}`,teams:['A','B'].map(side=>{
+  const team=state.teams.find(t=>t.id===match[`team${side}Id`])||{},stored=map.detail?.[`team${side}`]||[];
+  const roster=(team.players||[]).map((p,i)=>{
+   const stats=stored.find(s=>s.playerId===p.id)||{};
+   return {...p,...stats,playerId:p.id,starter:stats.starter??p.starter??i<5};
+  });
+  for(const stats of stored)if(!roster.some(p=>p.playerId===stats.playerId))roster.push(stats);
+  return {id:team.id||'',side,name:team.name||side,logo:team.logoPrimary||team.logoSecondary||'',players:roster.filter(p=>p.starter).map(p=>({id:p.playerId,avatar:p.avatar||'',kills:number(p.kills),deaths:number(p.deaths),assists:number(p.assists),rating:number(stored.find(s=>s.playerId===p.playerId)?.rating)}))};
+ })};
+}
+async function sdResultCanvas(model) {
+ await document.fonts?.ready;
+ const sources=[...new Set(model.teams.flatMap(t=>[t.logo,...t.players.map(p=>p.avatar)]).filter(Boolean))];
+ const images=new Map(await Promise.all(sources.map(src=>new Promise((resolve,reject)=>{
+  const img=new Image(),timer=setTimeout(()=>reject(Error('队标或头像加载超时，请检查图片后重试')),10000);
+  img.crossOrigin='anonymous';img.onload=()=>{clearTimeout(timer);resolve([src,img]);};img.onerror=()=>{clearTimeout(timer);reject(Error('队标或头像加载失败，请检查图片后重试'));};img.src=src;
+ }))));
+ const canvas=document.createElement('canvas');canvas.width=1600;canvas.height=Math.max(820,360+Math.max(...model.teams.map(t=>t.players.length))*88);
+ const ctx=canvas.getContext('2d');
+ ctx.fillStyle='#0c1424';ctx.fillRect(0,0,canvas.width,canvas.height);
+ const text=(value,x,y,size=24,color='#eef3ff',align='left',width=1400)=>{ctx.font=`600 ${size}px "Microsoft YaHei", sans-serif`;ctx.fillStyle=color;ctx.textAlign=align;ctx.fillText(String(value),x,y,width);};
+ const picture=(src,x,y,size,label)=>{ctx.fillStyle='#24334b';ctx.fillRect(x,y,size,size);const img=images.get(src);if(img){const scale=Math.min(size/img.width,size/img.height);ctx.drawImage(img,x+(size-img.width*scale)/2,y+(size-img.height*scale)/2,img.width*scale,img.height*scale);}else text(String(label||'?').slice(0,2),x+size/2,y+size*.65,size*.3,'#8fa9ca','center',size);};
+ text(model.title,60,58,26,'#8fa9ca');text(`图${model.index+1} · ${model.map}`,800,115,40,'#ffffff','center');
+ text(`${model.a??0} : ${model.b??0}`,800,186,52,'#7dd3fc','center');text(`BO 总比分  ${model.series}`,800,228,22,'#8fa9ca','center');
+ model.teams.forEach((team,i)=>{const x=60+i*780;
+  picture(team.logo,x+(i?620:0),160,80,team.name);text(team.name,x+(i?600:100),194,30,'#ffffff',i?'right':'left',420);
+  ctx.fillStyle='#18263d';ctx.fillRect(x,266,700,42);text('选手 ID',x+84,294,20,'#8fa9ca');text('K / D / A',x+482,294,20,'#8fa9ca','center');text('RATING',x+632,294,20,'#8fa9ca','center');
+  team.players.forEach((p,j)=>{const y=322+j*88;ctx.fillStyle=j%2?'#142038':'#101c30';ctx.fillRect(x,y,700,78);picture(p.avatar,x+10,y+7,64,p.id);text(p.id,x+84,y+46,24,'#eef3ff','left',295);text(`${p.kills} / ${p.deaths} / ${p.assists}`,x+482,y+46,24,'#eef3ff','center',180);text(p.rating.toFixed(2),x+632,y+46,26,'#7dd3fc','center');});
+ });
+ text('K 击杀  /  D 死亡  /  A 助攻     ·     未填写数据按 0 显示',60,canvas.height-26,18,'#8fa9ca');return {canvas,images};
+}
+async function sdResultDocument(state,match,map) {
+ const model=sdResultModel(state,match,map),{canvas,images}=await sdResultCanvas(model);
+ const embedded=new Map();
+ for(const [src,img] of images){const asset=document.createElement('canvas');asset.width=img.naturalWidth;asset.height=img.naturalHeight;asset.getContext('2d').drawImage(img,0,0);embedded.set(src,asset.toDataURL('image/png'));}
+ return {
+  schemaVersion:1,tournament:model.title,matchId:match.id,round:match.round||'',bestOf:match.bestOf,
+  seriesScore:{a:match.scoreA??0,b:match.scoreB??0},
+  map:{number:map.index+1,name:map.map,score:{a:map.a??0,b:map.b??0}},
+  teams:model.teams.map(team=>({...team,logo:embedded.get(team.logo)||'',players:team.players.map(player=>({...player,avatar:embedded.get(player.avatar)||''}))})),
+  // Keep the self-contained map report image as the final JSON property.
+  mapResultImage:{mimeType:'image/png',encoding:'data-url',data:canvas.toDataURL('image/png')}
+ };
+}
+async function sdDownloadResult(state,match,map) {
+ const result=await sdResultDocument(state,match,map);
+ const blob=new Blob([JSON.stringify(result,null,2)],{type:'application/json;charset=utf-8'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download=`${match.id}_图${map.index+1}_${map.map}.json`.replace(/[<>:"/\\|?*\x00-\x1f]/g,'_');document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function sdResultExports({state,match}) {
+ const h=l.createElement,[busy,setBusy]=l.useState(false),[error,setError]=l.useState('');
+ if(match.status!=='completed')return null;
+ const maps=sdResultMaps(match);
+ return h('div',null,h('div',{className:'sf-actions'},...maps.map(map=>h(sdFlowButton,{key:map.index,disabled:busy,onClick:async()=>{setBusy(true);setError('');try{await sdDownloadResult(state,match,map);}catch(e){setError(e.message);}finally{setBusy(false);}}},`导出图${map.index+1}_${map.map}`))),maps.length>0&&h('small',null,'导出 JSON，文件末尾内嵌该图战绩图片；未填写数据按 0 显示。'),busy&&h('small',{role:'status'},'正在生成 JSON 与当图战绩图片…'),!maps.length&&h('small',null,'无已进行地图可导出'),error&&h('p',{role:'alert',className:'sf-error'},error));
 }

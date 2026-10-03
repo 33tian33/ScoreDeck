@@ -15,3 +15,5 @@
 .sd-steam-id .sd-field-error{color:#ffb2a9;font-size:11px;line-height:1.4;overflow-wrap:anywhere}
 .team-form-panel .player-table:has(.sd-player-identity),.team-form-panel .player-table.head{grid-template-columns:24px 80px minmax(165px,1fr) 95px 70px 60px!important}
 @media(max-width:1200px){.team-form-panel .player-table:has(.sd-player-identity),.team-form-panel .player-table.head{grid-template-columns:20px 60px minmax(150px,1fr) 80px 58px 52px!important}}
+
+.sidebar nav button:disabled,.sidebar nav button:disabled:hover{color:#626262;background:transparent;opacity:.5;cursor:not-allowed}

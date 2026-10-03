@@ -1,3 +1,4 @@
+const {createTestState}=require('./fixtures/state.cjs');
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const M=require('../server/match-data.cjs'),D=require('../server/default-state.cjs'),F=require('../server/tournament-flow.cjs'),V=require('../server/flow-display.cjs'),H=require('../server/highlights.cjs');
 const make=(bo,first='A')=>{const m={bestOf:bo,teamAId:'a',teamBId:'b'},steps=M.template(bo,first).map((v,i)=>({...v,map:M.MAPS[i],...(['pick','decider'].includes(v.action)?{sidePicker:i%2?'A':'B',startSide:i%2?'T':'CT'}:{})}));M.applyBP(m,steps,first);return m;};
@@ -23,7 +24,7 @@ const find=(n,fn)=>typeof n==='object'?[...(fn(n)?[n]:[]),...(n.children||[]).fl
 const text=n=>typeof n==='object'?(n.children||[]).map(text).join(' '):String(n);
 test('actual output component renders seven ordered steps, opening CT/T and BO2 unused map; follows main match',()=>{
  for(const bo of [1,2,3,5]){
-  const s=D.createDefaultState();s.tournament.formatId='single-elim-16'; // Legacy current-match selection.
+  const s=createTestState();s.tournament.formatId='single-elim-16'; // Legacy current-match selection.
   const m=make(bo,'B');m.id='chosen';s.matches=[m];s.selectedMatchId=m.id;s.teams=[{id:'a',name:'队伍甲',shortName:'AAA'},{id:'b',name:'队伍乙',shortName:'BBB'}];
   const view=ctx.bpView({state:s}),cards=find(view,n=>n.props?.className?.startsWith('sd-veto-card '));assert.equal(cards.length,7);
   assert.equal(cards[0].props.className,'sd-veto-card ban');assert.match(text(cards[0]),/BBB/);
@@ -34,7 +35,7 @@ test('actual output component renders seven ordered steps, opening CT/T and BO2 
  }
 });
 test('flow output follows selected main match; participant changes clear BP; scene survives saved layouts',()=>{
- const s=D.createDefaultState(),st=F.addStage(s,'playoff',{teamCount:2});st.slots.forEach((v,i)=>v.teamId=s.teams[i].id);F.reconcile(s);F.activate(s);const m=F.matchesOf(s,st.id)[0];s.selectedStageId=st.id;s.selectedMatchId=m.id;
+ const s=createTestState(),st=F.addStage(s,'playoff',{teamCount:2});st.slots.forEach((v,i)=>v.teamId=s.teams[i].id);F.reconcile(s);F.activate(s);const m=F.matchesOf(s,st.id)[0];s.selectedStageId=st.id;s.selectedMatchId=m.id;
  M.applyBP(m,M.template(m.bestOf).map((v,i)=>({...v,map:M.MAPS[i],...(['pick','decider'].includes(v.action)?{sidePicker:'B',startSide:'CT'}:{})})));
  assert.match(text(ctx.bpView({state:s})),/CT/);assert.ok(M.stats(s).bp.some(v=>v.startSide==='CT'));
  const restored=D.migrateState(JSON.parse(JSON.stringify(s)));assert.equal(M.currentMatch(restored).bp.at(-1).startSide,'CT');
@@ -45,7 +46,7 @@ test('flow output follows selected main match; participant changes clear BP; sce
 test('BP editor saves side picker/CT-T, preserves selections when first side changes and clears them on map replacement',async()=>{
  let slots=[],cursor=0,payload;ctx.l.useState=initial=>{const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;return [slots[i],value=>slots[i]=typeof value==='function'?value(slots[i]):value];};ctx.l.useRef=initial=>{const i=cursor++;return slots[i]||=( {current:initial} );};ctx.l.useEffect=()=>{};ctx.sdFlowButton=props=>element('button',props,...props.children);ctx.SDClient={request:async(url,options)=>{assert.equal(url,'/api/match-bp');payload=JSON.parse(options.body);}};
  vm.runInContext('globalThis.bpEditor=sdMatchData;',ctx);
- const s=D.createDefaultState(),m={...make(3),id:'edit'};s.teams=[{id:'a',name:'队伍甲'},{id:'b',name:'队伍乙'}];
+ const s=createTestState(),m={...make(3),id:'edit'};s.teams=[{id:'a',name:'队伍甲'},{id:'b',name:'队伍乙'}];
  let tree;const render=()=>{cursor=0;tree=ctx.bpEditor({state:s,match:m,commit(){}});};const select=label=>find(tree,n=>n.type==='select'&&n.props['aria-label']===label)[0];render();
  select('BP 3 选边队伍').props.onChange({target:{value:'A'}});render();select('BP 3 开局阵营').props.onChange({target:{value:'T'}});render();select('BP 先手方').props.onChange({target:{value:'B'}});render();
  assert.equal(select('BP 3 开局阵营').props.value,'T');assert.equal(select('BP 3 选边队伍').props.value,'A');
@@ -54,7 +55,7 @@ test('BP editor saves side picker/CT-T, preserves selections when first side cha
 });
 
 test('unfilled BP steps stay pending without completed-ban claims or invented opening sides',()=>{
- const s=D.createDefaultState();s.tournament.formatId='single-elim-16';
+ const s=createTestState();s.tournament.formatId='single-elim-16';
  const m={id:'pending',bestOf:3,teamAId:'a',teamBId:'b'};M.applyBP(m,M.template(3));s.matches=[m];s.selectedMatchId=m.id;
  const view=ctx.bpView({state:s});assert.equal(find(view,n=>n.props?.className?.endsWith(' pending')).length,7);
  assert.doesNotMatch(text(view),/已禁用|本场不进行|固定两张|等待确认选边|展示开局选边|最终决胜图/);

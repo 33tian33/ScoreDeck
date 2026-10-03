@@ -1,6 +1,7 @@
+const {createTestState}=require('./fixtures/state.cjs');
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const F=require('../server/tournament-flow.cjs'),D=require('../server/default-state.cjs');
-const state=()=>D.createDefaultState(),fill=(s,st,start=0)=>st.slots.forEach((sl,i)=>sl.teamId=s.teams[start+i].id);
+const state=()=>createTestState(),fill=(s,st,start=0)=>st.slots.forEach((sl,i)=>sl.teamId=s.teams[start+i].id);
 function finish(s,m,b=false){m.mapScores=[];m.mapDetails=[];m.scoreA=b?0:Math.floor(m.bestOf/2)+1;m.scoreB=b?Math.floor(m.bestOf/2)+1:0;m.status='completed';F.reconcile(s);}
 function play(s,st,choose=()=>false){let n=0;while(true){F.reconcile(s);const m=F.matchesOf(s,st.id).find(m=>m.teamAId&&m.teamBId&&m.status!=='completed'&&!m.inactive);if(!m)break;finish(s,m,choose(m,n++));if(n>200)throw Error('did not converge');}return n;}
 test('new tournaments are blank; no legacy event data is discarded during migration',()=>{const s=state();assert.equal(s.tournament.formatId,'flow');assert.deepEqual(s.stages,[]);assert.deepEqual(s.matches,[]);const old={...state(),tournament:{...state().tournament,formatId:'single-elim-8'},matches:[{id:'old',teamAId:'team-01',teamBId:'team-02',bestOf:1,scoreA:1,scoreB:0,status:'completed'}]};const migrated=D.migrateState(old);assert.equal(migrated.matches[0].status,'completed');F.blank(migrated);assert.equal(migrated.legacyFlowBackup.matches[0].id,'old');});

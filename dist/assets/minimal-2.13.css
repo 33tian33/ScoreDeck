@@ -178,3 +178,5 @@ button,input,select,textarea{font-family:inherit}
 .app-shell .sd-sponsors-settings>label:has(input[type=checkbox]){display:flex;align-items:center;gap:9px;margin-top:20px}
 .app-shell .sd-sponsor-card{background:#292929;border-color:#444;border-radius:12px}
 .app-shell input[type=file]::file-selector-button{border:1px solid #666;background:#3c3c3c;color:#eee;padding:5px 8px;border-radius:6px;margin-right:8px;font-size:11px;cursor:pointer}
+
+.app-shell .sd-director-help{margin:2px 0 10px;color:#a6a6a6;font-size:11px;line-height:1.65}.sd-director-help code{display:block;margin:5px 0;padding:5px 6px;border:1px solid #3c3c3c;border-radius:6px;background:#222;color:#ececec;font-size:10px;white-space:normal;overflow-wrap:anywhere;user-select:all}

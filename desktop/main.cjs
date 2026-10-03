@@ -93,7 +93,8 @@ function migrateLegacyData(dataDir) {
 app.whenReady().then(async () => {
   const webRoot = app.isPackaged ? path.join(__dirname, "..", "dist") : path.join(__dirname, "..", "dist");
   const dataDir = portableRoot ? path.join(portableRoot, "ScoreDeck CS Portable Data") : path.join(app.getPath("appData"), "ScoreDeck CS 导播台 2.3");
-  migrateLegacyData(dataDir);
+  // A fresh portable installation starts with its own defaults and data.
+  if (!portableRoot) migrateLegacyData(dataDir);
   directorLayoutFile=path.join(dataDir,"director-window.json");
   graphicsServer = createBroadcastServer({
     webRoot,
