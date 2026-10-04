@@ -65,7 +65,7 @@ func remoteCall(ctx context.Context, c Config, method, path string, body, result
 	req.Header.Set("Content-Type", "application/json")
 	client := httpClient
 	if c.ConnectionMode == "relay" {
-		relay.Headers(req, c.RelayDevice, c.RelayToken, c.RelayGroup, c.RelayPair)
+		relay.Headers(req, c.RelayDevice, c.RelayGroup, c.RelayPair)
 		client = relayControlHTTP
 	}
 	r, e := client.Do(req)
@@ -250,7 +250,7 @@ func (a *Service) download(c Config, art *Artifact) error {
 			}
 			client := httpClient
 			if c.ConnectionMode == "relay" {
-				relay.Headers(req, c.RelayDevice, c.RelayToken, c.RelayGroup, c.RelayPair)
+				relay.Headers(req, c.RelayDevice, c.RelayGroup, c.RelayPair)
 				req.Header.Set("X-Replay-SHA256", art.SHA256)
 				req.Header.Set("X-Replay-Size", strconv.FormatInt(art.Size, 10))
 				client = relayMediaHTTP

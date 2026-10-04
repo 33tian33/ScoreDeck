@@ -46,9 +46,8 @@ func ValidateURL(raw string) error {
 	}
 	return errors.New("IP 中继支持 HTTP；域名中继请使用 HTTPS")
 }
-func Headers(r *http.Request, id, token, group, pair string) {
+func Headers(r *http.Request, id, group, pair string) {
 	r.Header.Set("X-Replay-Device", id)
-	r.Header.Set("Authorization", "Bearer "+token)
 	r.Header.Set("X-Replay-Group", group)
 	if pair != "" {
 		r.Header.Set("X-Replay-Pair", pair)
@@ -57,7 +56,7 @@ func Headers(r *http.Request, id, token, group, pair string) {
 
 // Run owns all work for one connection. Cancelling it closes the socket and
 // cancels in-flight local handlers; commands are never buffered for replay.
-func Run(ctx context.Context, base, id, token string, h Hello, state func(Node), handle func(context.Context, Message) Message, media func(context.Context, Message)) error {
+func Run(ctx context.Context, base, id string, h Hello, state func(Node), handle func(context.Context, Message) Message, media func(context.Context, Message)) error {
 	if err := ValidateURL(base); err != nil {
 		return err
 	}
@@ -69,7 +68,7 @@ func Run(ctx context.Context, base, id, token string, h Hello, state func(Node),
 	}
 	headers := http.Header{}
 	headers.Set("X-Replay-Device", id)
-	headers.Set("Authorization", "Bearer "+token)
+	headers.Set("X-Replay-Group", h.Group)
 	d := websocket.Dialer{HandshakeTimeout: 10 * time.Second, Proxy: http.ProxyFromEnvironment}
 	ws, res, e := d.DialContext(ctx, u.String(), headers)
 	if e != nil {
@@ -120,6 +119,7 @@ func Run(ctx context.Context, base, id, token string, h Hello, state func(Node),
 	for {
 		var m Message
 		if e = ws.ReadJSON(&m); e != nil {
+			pairCancel()
 			return e
 		}
 		if m.Type == "state" && m.Node != nil {

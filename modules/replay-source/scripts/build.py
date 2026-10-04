@@ -11,9 +11,10 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / 'dist'
 GO = os.environ.get('GO', 'go')
-VERSION = '0.2.1'
+VERSION = '0.2.5'
 TARGETS = [('windows', 'amd64'), ('linux', 'arm64'), ('linux', 'amd64')]
 DIST.mkdir(exist_ok=True)
+artifacts = []
 for system, arch in TARGETS:
     folder = DIST / f'ProjectReplay-{VERSION}-{system}-{arch}'
     folder.mkdir(exist_ok=True)
@@ -48,6 +49,8 @@ for system, arch in TARGETS:
         archive = DIST / f'{folder.name}.tar.gz'
         with tarfile.open(archive, 'w:gz') as output:
             output.add(folder, arcname=folder.name, filter=lambda info: None if 'replay-data' in Path(info.name).parts else info)
+    artifacts.append(archive)
+    if system == 'windows': artifacts.append(DIST / 'ProjectReplay-windows-x64-portable.exe')
     print(f'Built {archive.name}', flush=True)
     if system == 'linux':
         relay_folder = DIST / f'ProjectReplay-Relay-{VERSION}-{system}-{arch}'
@@ -57,11 +60,13 @@ for system, arch in TARGETS:
         shutil.copytree(ROOT / 'configs' / 'relay', relay_folder / 'configs', dirs_exist_ok=True)
         shutil.copy2(ROOT / 'LICENSE', relay_folder / 'LICENSE')
         shutil.copy2(ROOT / 'third_party_licenses' / 'github.com_gorilla_websocket@v1.5.3' / 'LICENSE', relay_folder / 'WEBSOCKET_LICENSE')
-        with tarfile.open(DIST / f'{relay_folder.name}.tar.gz', 'w:gz') as output:
+        relay_archive = DIST / f'{relay_folder.name}.tar.gz'
+        with tarfile.open(relay_archive, 'w:gz') as output:
             output.add(relay_folder, arcname=relay_folder.name)
+        artifacts.append(relay_archive)
         print(f'Built {relay_folder.name}.tar.gz', flush=True)
 checksums = []
-for path in sorted(DIST.iterdir()):
+for path in sorted(artifacts):
     if path.is_file() and path.suffix in ('.gz', '.zip', '.exe'):
         checksums.append(f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}')
 (DIST / 'SHA256SUMS').write_text('\n'.join(checksums) + '\n')

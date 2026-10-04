@@ -3,9 +3,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -18,29 +16,14 @@ import (
 func main() {
 	listen := flag.String("listen", ":7790", "HTTP bind address for direct IP access (use 127.0.0.1:7790 behind a proxy)")
 	data := flag.String("data", "relay-data", "private relay state/cache directory")
-	credentials := flag.String("credentials", "devices.json", "device credential JSON file")
 	quota := flag.Int64("cache-gib", 10, "temporary cache quota in GiB")
 	cert := flag.String("tls-cert", "", "TLS certificate file (optional behind proxy)")
 	key := flag.String("tls-key", "", "TLS private key file")
-	generate := flag.Bool("generate-devices", false, "print a fresh director/agent credential JSON; save it privately")
 	flag.Parse()
-	if *generate {
-		b, _ := json.MarshalIndent([]relay.Credential{{ID: "director-1", Role: "director", Token: relay.ID()}, {ID: "agent-1", Role: "agent", Token: relay.ID()}}, "", "  ")
-		fmt.Println(string(b))
-		return
-	}
-	raw, e := os.ReadFile(*credentials)
-	if e != nil {
-		log.Fatal(e)
-	}
-	var devices []relay.Credential
-	if e = json.Unmarshal(raw, &devices); e != nil {
-		log.Fatal(e)
-	}
 	if *quota < 1 || *quota > 10240 {
 		log.Fatal("cache-gib must be 1..10240")
 	}
-	broker, e := relay.NewServer(*data, devices, *quota<<30)
+	broker, e := relay.NewServer(*data, *quota<<30)
 	if e != nil {
 		log.Fatal(e)
 	}

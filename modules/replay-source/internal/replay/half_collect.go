@@ -51,14 +51,16 @@ func (a *Service) collectHalfLocked() {
 	for _, v := range clips {
 		if !seen[v.art.ID] && !seen["event:"+v.art.EventID] {
 			ids = append(ids, v.art.ID)
-			if v.art.Round <= 12 {
+			if v.art.Round <= a.s.Output.HalfRound {
 				halfIDs = append(halfIDs, v.art.ID)
 			}
 			seen[v.art.ID] = true
 			seen["event:"+v.art.EventID] = true
 		}
 	}
-	a.s.FullQueue = ids
+	if !a.s.Output.FullManual {
+		a.s.FullQueue = ids
+	}
 	if !a.s.Output.HalfManual {
 		a.s.HalfQueue = halfIDs
 	}

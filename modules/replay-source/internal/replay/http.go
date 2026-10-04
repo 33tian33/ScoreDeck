@@ -48,6 +48,9 @@ func (a *Service) Handler() http.Handler {
 	a.teamRoutes(mux, api)
 	a.cleanupRoutes(api)
 	a.hudRoutes(api)
+	a.hudSettingsRoutes(api)
+	a.hudZipRoutes(mux, api)
+	a.obsLaunchRoutes(api)
 	a.timingRoutes(api)
 	api.HandleFunc("POST /api/hud", func(w http.ResponseWriter, r *http.Request) {
 		var p struct {
@@ -387,7 +390,8 @@ func (a *Service) Handler() http.Handler {
 			ancestors = a.EmbedOrigin
 		}
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'; frame-ancestors "+ancestors+"; base-uri 'none'; form-action 'self'")
-		if origin := r.Header.Get("Origin"); origin != "" {
+		hudRead := (r.Method == "GET" || r.Method == "HEAD") && (strings.HasPrefix(r.URL.Path, "/hud-packages/") || r.URL.Path == "/hud-data" || r.URL.Path == "/hud-api/state")
+		if origin := r.Header.Get("Origin"); origin != "" && !hudRead {
 			u, e := url.Parse(origin)
 			scheme := "http"
 			if r.TLS != nil {
@@ -401,6 +405,15 @@ func (a *Service) Handler() http.Handler {
 		if r.Method != "GET" && r.Method != "HEAD" && r.URL.Path != "/api/cleanup" {
 			a.maintenance.RLock()
 			defer a.maintenance.RUnlock()
+		}
+		if r.Method != "GET" && r.Method != "HEAD" {
+			a.mu.Lock()
+			starting := a.obsLaunch.Phase == "starting" || a.hudImport.Phase == "starting"
+			a.mu.Unlock()
+			if starting {
+				respond(w, http.StatusConflict, map[string]string{"error": "OBS / HUD 正在准备，请等待完成后再操作"})
+				return
+			}
 		}
 		mux.ServeHTTP(w, r)
 	})

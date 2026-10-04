@@ -34,7 +34,7 @@ async function stripCaches(root){
  async function prune(dir,rel=''){for(const e of await fs.promises.readdir(dir,{withFileTypes:true})){const name=rel?rel+'/'+e.name:e.name,p=path.join(dir,e.name);if(!include(name))await fs.promises.rm(p,{recursive:true,force:true});else if(e.isDirectory())await prune(p,name);}}
  await prune(root);
  const disk=replaySettings(root);
- if(disk?.state){for(const key of ['events','jobs','artifacts','queue','half_queue','logs'])disk.state[key]=[];disk.paths={};await fs.promises.writeFile(path.join(root,'integrations/replay/state.json'),JSON.stringify(disk,null,2));}
+ if(disk?.state){for(const key of ['events','jobs','artifacts','queue','half_queue','full_queue','logs'])disk.state[key]=[];disk.paths={};await fs.promises.writeFile(path.join(root,'integrations/replay/state.json'),JSON.stringify(disk,null,2));}
 }
 async function pruneImported(stage,targetRoot){
  const imported=path.join(stage,'imported');

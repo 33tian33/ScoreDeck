@@ -114,6 +114,7 @@ func (a *Service) demoAction(p demoRequest) error {
 		a.localDemo = LocalDemo{Phase: "loaded", Path: path, SHA256: hash}
 		a.s.Queue = nil
 		a.s.HalfQueue = nil
+		a.s.FullQueue = nil
 		a.resetDemoTimelineLocked()
 	case "seek":
 		if a.localDemo.Path == "" || p.Tick < 0 || p.Tick > 100000000 {
@@ -208,6 +209,7 @@ func (a *Service) resetDemoTimelineLocked() {
 	a.output = OutputSession{}
 	a.endRound = 0
 	a.halfTriggered = false
+	a.fullTriggered = false
 	// Old unsubmitted candidates must not enter a subsequent test run.
 	for i := range a.s.Events {
 		if a.s.Events[i].JobID == "" {

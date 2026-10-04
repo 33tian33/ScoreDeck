@@ -28,8 +28,7 @@ func waitRelay(t *testing.T, p func() bool) {
 	t.Fatal("relay condition timed out")
 }
 func TestRelayIntegrationPreservesLANAndDownloads(t *testing.T) {
-	cs := []relay.Credential{{ID: "director", Role: "director", Token: relay.ID()}, {ID: "agent", Role: "agent", Token: relay.ID()}}
-	broker, e := relay.NewServer(t.TempDir(), cs, 1<<30)
+	broker, e := relay.NewServer(t.TempDir(), 1<<30)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -42,8 +41,6 @@ func TestRelayIntegrationPreservesLANAndDownloads(t *testing.T) {
 		c := s.s.Config
 		c.ConnectionMode = "relay"
 		c.RelayURL = strings.TrimPrefix(server.URL, "http://")
-		c.RelayDevice = cs[i].ID
-		c.RelayToken = cs[i].Token
 		c.RelayGroup = "0007"
 		c.RelayAutoPair = i == 1
 		c.WorkerURL = "http://192.0.2.1:7788"
@@ -83,7 +80,7 @@ func TestRelayIntegrationPreservesLANAndDownloads(t *testing.T) {
 		t.Fatal("download content mismatch", e)
 	}
 	snap, _ := json.Marshal(d.snapshot())
-	if bytes.Contains(snap, []byte(cs[0].Token)) {
+	if bytes.Contains(snap, []byte("relay_token")) {
 		t.Fatal("credential leaked in snapshot")
 	}
 	// The saved LAN address survives opting in and out, and routes exactly as before.
@@ -101,25 +98,24 @@ func TestRelayIntegrationPreservesLANAndDownloads(t *testing.T) {
 	}
 	d.mu.Unlock()
 }
-func TestRelayConfigValidationAndSecretPreservation(t *testing.T) {
+func TestRelayConfigValidationAndAutomaticIdentity(t *testing.T) {
 	a := testService(t, "agent")
 	c := a.s.Config
 	c.ConnectionMode = "relay"
 	c.RelayURL = "https://relay.example.com"
-	c.RelayDevice = "agent"
-	c.RelayToken = strings.Repeat("a", 48)
 	c.RelayGroup = "0001"
 	c.RelayAutoPair = true
 	if e := a.configure(c); e != nil {
 		t.Fatal(e)
 	}
 	c = a.s.Config
-	c.RelayToken = ""
+	device := c.RelayDevice
+	c.RelayDevice = ""
 	if e := a.configure(c); e != nil {
 		t.Fatal(e)
 	}
-	if a.s.Config.RelayToken == "" {
-		t.Fatal("secret lost")
+	if device == "" || a.s.Config.RelayDevice != device {
+		t.Fatal("automatic device identity lost")
 	}
 	c = a.s.Config
 	c.RelayGroup = "123"
@@ -154,8 +150,6 @@ func TestRelayLocalGroupChangeRejectsOldConnectionImmediately(t *testing.T) {
 	c := a.s.Config
 	c.ConnectionMode = "relay"
 	c.RelayURL = "https://relay.example.com"
-	c.RelayDevice = "agent"
-	c.RelayToken = strings.Repeat("a", 48)
 	c.RelayGroup = "0001"
 	if err := a.configure(c); err != nil {
 		t.Fatal(err)

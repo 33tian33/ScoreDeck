@@ -34,5 +34,3 @@ body{background:#212121;color:#ececec}.sidebar{background:#171717;border-color:#
 
 .team-logo-preview{width:44px;height:44px;object-fit:contain}
 .queue-buttons[hidden]{display:none!important}
-
-#full-queue .queue-buttons{display:none!important}

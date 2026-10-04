@@ -85,10 +85,14 @@ func (a *Service) ingestGSI(side string, payload map[string]any) (err error) {
 	}
 	if previous := a.gsiSeen[side]; side == authority && previous > 0 && ((a.gsiMap[side] != "" && gameMap != a.gsiMap[side]) || round < a.gsiRound[side]) {
 		a.s.Config.Epoch++
+		a.s.Queue = nil
+		a.s.HalfQueue = nil
+		a.s.FullQueue = nil
 		a.output = OutputSession{}
 		a.endRound = 0
 		a.manualRounds = nil
 		a.halfTriggered = false
+		a.fullTriggered = false
 		a.s.Config.CalibratedUntil = 0
 		a.s.Config.Paused = !a.s.Config.AutoCapture
 		delete(a.roundClocks, side)
@@ -213,10 +217,12 @@ func (a *Service) adoptMapLocked(gameMap string) {
 	a.s.Config.Paused = !a.s.Config.AutoCapture || a.localDemo.Phase == "armed" || a.cs2Launch.Phase == "starting"
 	a.s.Queue = nil
 	a.s.HalfQueue = nil
+	a.s.FullQueue = nil
 	a.output = OutputSession{}
 	a.endRound = 0
 	a.manualRounds = nil
 	a.halfTriggered = false
+	a.fullTriggered = false
 	a.previous = map[string]map[string]any{}
 	a.gsiMap = map[string]string{}
 	a.gsiSeen = map[string]int64{}

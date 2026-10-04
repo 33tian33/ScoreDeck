@@ -25,7 +25,7 @@ type relayStatus struct {
 
 func remoteConfigured(c Config) bool { return c.ConnectionMode == "relay" || c.WorkerURL != "" }
 func relayIdentity(c Config) string {
-	return strings.Join([]string{c.ConnectionMode, c.RelayURL, c.RelayDevice, c.RelayToken, c.RelayGroup, c.RelayName, strconv.FormatBool(c.RelayAutoPair)}, "\x00")
+	return strings.Join([]string{c.ConnectionMode, c.RelayURL, c.RelayDevice, c.RelayGroup, c.RelayName, strconv.FormatBool(c.RelayAutoPair)}, "\x00")
 }
 func (a *Service) relayLoop() {
 	defer a.wg.Done()
@@ -72,7 +72,7 @@ func (a *Service) relayLoop() {
 			done = make(chan struct{})
 			go func(c Config, key string, done chan struct{}) {
 				defer close(done)
-				err := relay.Run(ctx, c.RelayURL, c.RelayDevice, c.RelayToken, relay.Hello{Role: a.role, Group: c.RelayGroup, Name: c.RelayName, Auto: c.RelayAutoPair}, func(n relay.Node) {
+				err := relay.Run(ctx, c.RelayURL, c.RelayDevice, relay.Hello{Role: a.role, Group: c.RelayGroup, Name: c.RelayName, Auto: c.RelayAutoPair}, func(n relay.Node) {
 					a.mu.Lock()
 					defer a.mu.Unlock()
 					if relayIdentity(a.s.Config) != key {
@@ -89,7 +89,7 @@ func (a *Service) relayLoop() {
 				if relayIdentity(a.s.Config) == key {
 					a.relayState.Online = false
 					if err != nil && ctx.Err() == nil {
-						a.relayState.Error = "云中继连接断开，正在重试；请检查网络与设备凭据"
+						a.relayState.Error = "云中继连接断开，正在重试；请检查网络与群组码"
 					}
 				}
 				a.mu.Unlock()
@@ -112,6 +112,9 @@ func (a *Service) relayLoop() {
 		}
 		select {
 		case <-a.ctx.Done():
+			if cancel != nil {
+				cancel()
+			}
 			return
 		case <-tick.C:
 		}
@@ -151,7 +154,7 @@ func relayRequest(ctx context.Context, c Config, method, path string, body io.Re
 	if e != nil {
 		return nil, e
 	}
-	relay.Headers(r, c.RelayDevice, c.RelayToken, c.RelayGroup, c.RelayPair)
+	relay.Headers(r, c.RelayDevice, c.RelayGroup, c.RelayPair)
 	r.Header.Set("Content-Type", "application/json")
 	return r, nil
 }

@@ -1,5 +1,5 @@
-// Package relay provides the optional authenticated WAN transport. LAN APIs do
-// not depend on the relay protocol or credentials.
+// Package relay provides the optional group-code WAN transport. LAN APIs do
+// not depend on the relay protocol.
 package relay
 
 import (
@@ -24,11 +24,6 @@ func ID() string {
 	return hex.EncodeToString(b)
 }
 
-type Credential struct {
-	ID    string `json:"id"`
-	Role  string `json:"role"`
-	Token string `json:"token"`
-}
 type Hello struct {
 	Role  string `json:"role,omitempty"`
 	Group string `json:"group"`

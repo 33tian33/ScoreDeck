@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const Version = "0.2.1"
+const Version = "0.2.5"
 
 func nowMS() int64 { return time.Now().UnixMilli() }
 func id() string {
@@ -29,7 +29,6 @@ type Config struct {
 	ConnectionMode string `json:"connection_mode"`
 	RelayURL       string `json:"relay_url"`
 	RelayDevice    string `json:"relay_device"`
-	RelayToken     string `json:"relay_token,omitempty"`
 	RelayGroup     string `json:"relay_group"`
 	RelayName      string `json:"relay_name"`
 	RelayAutoPair  bool   `json:"relay_auto_pair"`
@@ -70,7 +69,7 @@ type Config struct {
 }
 
 func defaults() Config {
-	return Config{WorkflowVersion: 1, Mode: "live", Match: "训练赛", Map: "", Epoch: 1, Paused: false, AutoCapture: true, Strict: false, Delta: 8, Uncertainty: .15, Guard: .2, Setup: .2, Transition: 0, OBSURL: "ws://127.0.0.1:4455", NetCon: "127.0.0.1:2121", FFmpeg: "ffmpeg", FFprobe: "ffprobe", ReplayScene: "Replay", ReplayInput: "Replay Media", Mappings: map[string]int{}}
+	return Config{RelayDevice: relay.ID(), WorkflowVersion: 1, Mode: "live", Match: "训练赛", Map: "", Epoch: 1, Paused: false, AutoCapture: true, Strict: false, Delta: 8, Uncertainty: .15, Guard: .2, Setup: .2, Transition: 0, OBSURL: "ws://127.0.0.1:4455", NetCon: "127.0.0.1:2121", FFmpeg: "ffmpeg", FFprobe: "ffprobe", ReplayScene: "Replay", ReplayInput: "Replay Media", Mappings: map[string]int{}}
 }
 func (c Config) validate() error {
 	if c.ConnectionMode != "" && c.ConnectionMode != "lan" && c.ConnectionMode != "relay" {
@@ -83,8 +82,8 @@ func (c Config) validate() error {
 		if !relay.GroupPattern.MatchString(c.RelayGroup) {
 			return errors.New("群组码必须是 4 位数字，允许前导零")
 		}
-		if !relay.IDPattern.MatchString(c.RelayDevice) || len(c.RelayToken) < 32 || len(c.RelayToken) > 256 {
-			return errors.New("请填写云端签发的设备 ID 和独立访问凭据（32–256 字符）")
+		if !relay.IDPattern.MatchString(c.RelayDevice) {
+			return errors.New("中继设备标识无效")
 		}
 		if len(c.RelayName) > 80 {
 			return errors.New("设备名称过长")
@@ -210,16 +209,20 @@ type Log struct {
 	Message string `json:"message"`
 }
 type State struct {
-	TeamHUD   bool           `json:"team_hud"`
-	Output    OutputSettings `json:"output"`
-	HalfQueue []string       `json:"half_queue"`
-	FullQueue []string       `json:"full_queue"`
-	Config    Config         `json:"config"`
-	Events    []Event        `json:"events"`
-	Jobs      []Job          `json:"jobs"`
-	Artifacts []Artifact     `json:"artifacts"`
-	Queue     []string       `json:"queue"`
-	Logs      []Log          `json:"logs"`
+	HUDPackage        HUDPackage     `json:"hud_package"`
+	HUD               HUDSettings    `json:"hud"`
+	HUDActiveSource   string         `json:"hud_active_source"`
+	TeamHUD           bool           `json:"team_hud"`
+	Output            OutputSettings `json:"output"`
+	HalfQueue         []string       `json:"half_queue"`
+	FullQueue         []string       `json:"full_queue"`
+	HighlightsVersion int            `json:"highlights_version"`
+	Config            Config         `json:"config"`
+	Events            []Event        `json:"events"`
+	Jobs              []Job          `json:"jobs"`
+	Artifacts         []Artifact     `json:"artifacts"`
+	Queue             []string       `json:"queue"`
+	Logs              []Log          `json:"logs"`
 }
 
 // Disk artifacts include local paths, but network representations never disclose them.

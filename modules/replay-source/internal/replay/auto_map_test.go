@@ -34,6 +34,7 @@ func TestGSIMapDiscoveryAndTransition(t *testing.T) {
 			}
 			s.s.Queue = []string{"old"}
 			s.s.HalfQueue = []string{"old"}
+			s.s.FullQueue = []string{"old"}
 			s.output = OutputSession{ID: "old"}
 			s.manualRounds = map[int]bool{1: true}
 			p = gsiFrame(0, "live")
@@ -43,7 +44,7 @@ func TestGSIMapDiscoveryAndTransition(t *testing.T) {
 				t.Fatal("secondary feed changed map")
 			}
 			s.ingestGSI(side, p)
-			if s.s.Config.Map != "de_inferno" || s.s.Config.Epoch != epoch+2 || len(s.s.Queue) != 0 || len(s.s.HalfQueue) != 0 || s.output.ID != "" || len(s.manualRounds) != 0 {
+			if s.s.Config.Map != "de_inferno" || s.s.Config.Epoch != epoch+2 || len(s.s.Queue) != 0 || len(s.s.HalfQueue) != 0 || len(s.s.FullQueue) != 0 || s.output.ID != "" || len(s.manualRounds) != 0 {
 				t.Fatal("map transition did not isolate output")
 			}
 			s.ingestGSI(side, map[string]any{"provider": map[string]any{"appid": 730.0}})

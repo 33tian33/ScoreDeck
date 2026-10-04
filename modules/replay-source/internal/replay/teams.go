@@ -116,6 +116,7 @@ func (a *Service) teamRoutes(mux, api *http.ServeMux) {
 		respond(w, 200, map[string]bool{"ok": true, "synced": a.role == "director" && remoteConfigured(c)})
 	})
 	mux.HandleFunc("GET /hud-api/state", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 		a.mu.Lock()
 		defer a.mu.Unlock()
 		side := "b"

@@ -12,7 +12,9 @@ import (
 
 type OutputSettings struct {
 	HalfManual  bool   `json:"half_manual"`
+	FullManual  bool   `json:"full_manual"`
 	AutoRound   bool   `json:"auto_round"`
+	AutoFull    bool   `json:"auto_full"`
 	AutoHalf    bool   `json:"auto_half"`
 	HalfRound   int    `json:"half_round"`
 	Delay       int    `json:"delay"`
@@ -22,7 +24,7 @@ type OutputSettings struct {
 }
 
 func defaultOutput() OutputSettings {
-	return OutputSettings{AutoRound: true, AutoHalf: true, HalfRound: 12, Delay: 3, Hotkey: "Ctrl+Alt+R"}
+	return OutputSettings{AutoRound: true, AutoHalf: true, AutoFull: true, HalfRound: 12, Delay: 3, Hotkey: "Ctrl+Alt+R"}
 }
 
 type OutputItem struct {
@@ -47,6 +49,53 @@ func (a *Service) currentArtifactLocked(v Artifact) bool {
 	}
 	return false
 }
+func appendUnique(ids []string, id string) []string {
+	for _, existing := range ids {
+		if existing == id {
+			return ids
+		}
+	}
+	return append(ids, id)
+}
+func (a *Service) outputIDsLocked(kind string) []string {
+	switch kind {
+	case "half":
+		return a.s.HalfQueue
+	case "full":
+		return a.s.FullQueue
+	default:
+		return a.s.Queue
+	}
+}
+func (a *Service) outputIncludesRound(kind string, round, candidate int) bool {
+	if kind == "round" {
+		return candidate == round
+	}
+	if kind == "half" {
+		return candidate <= a.s.Output.HalfRound
+	}
+	return true
+}
+func (a *Service) pendingOutputLocked(kind string, round int) bool {
+	if kind == "round" {
+		return a.pendingRoundLocked(round)
+	}
+	rounds := map[int]bool{}
+	for _, e := range a.s.Events {
+		rounds[e.Round] = true
+	}
+	for _, j := range a.s.Jobs {
+		for _, e := range j.Events {
+			rounds[e.Round] = true
+		}
+	}
+	for r := range rounds {
+		if a.outputIncludesRound(kind, round, r) && a.pendingRoundLocked(r) {
+			return true
+		}
+	}
+	return false
+}
 func (a *Service) startOutputLocked(kind string, round int) error {
 	if a.role != "director" {
 		return errors.New("仅导播端可播出")
@@ -57,27 +106,25 @@ func (a *Service) startOutputLocked(kind string, round int) error {
 	if nowMS()-a.outputSeen > 3000 {
 		return errors.New("OBS 浏览器源未连接，请添加输出地址并保持启用")
 	}
-	ids := a.s.Queue
-	if kind == "half" {
-		ids = a.s.HalfQueue
-	} else if kind != "round" {
+	if kind != "round" && kind != "half" && kind != "full" {
 		return errors.New("未知播出类型")
 	}
+	ids := a.outputIDsLocked(kind)
 	items := []OutputItem{}
 	for _, key := range ids {
 		for _, v := range a.s.Artifacts {
-			if v.ID == key && a.currentArtifactLocked(v) && (kind == "half" || v.Round == round) {
+			if v.ID == key && a.currentArtifactLocked(v) && a.outputIncludesRound(kind, round, v.Round) {
 				items = append(items, OutputItem{v.ID, "replay"})
 			}
 		}
 	}
-	if len(items) == 0 && (kind != "round" || !a.pendingRoundLocked(round)) {
+	if len(items) == 0 && !a.pendingOutputLocked(kind, round) {
 		return errors.New("所选列表没有当前会话的就绪素材")
 	}
 	if a.s.Output.Transition1 != "" {
 		items = append([]OutputItem{{a.s.Output.Transition1, "transition"}}, items...)
 	}
-	if a.s.Output.Transition2 != "" && (kind != "round" || !a.pendingRoundLocked(round)) {
+	if a.s.Output.Transition2 != "" && !a.pendingOutputLocked(kind, round) {
 		items = append(items, OutputItem{a.s.Output.Transition2, "transition"})
 	}
 	a.output = OutputSession{ID: id(), Kind: kind, Round: round, Items: items, Deadline: nowMS() + 120000}
@@ -125,7 +172,7 @@ func (a *Service) pendingRoundLocked(round int) bool {
 
 func (a *Service) appendOutputLocked() {
 	o := &a.output
-	if o.ID == "" || o.Due > 0 || o.Kind != "round" {
+	if o.ID == "" || o.Due > 0 {
 		return
 	}
 	// Do not change a transition that has already begun.
@@ -141,9 +188,9 @@ func (a *Service) appendOutputLocked() {
 		tail--
 	}
 	additions := []OutputItem{}
-	for _, key := range a.s.Queue {
+	for _, key := range a.outputIDsLocked(o.Kind) {
 		for _, v := range a.s.Artifacts {
-			if v.ID == key && v.Round == o.Round && a.currentArtifactLocked(v) && !seen[key] {
+			if v.ID == key && a.outputIncludesRound(o.Kind, o.Round, v.Round) && a.currentArtifactLocked(v) && !seen[key] {
 				additions = append(additions, OutputItem{key, "replay"})
 				seen[key] = true
 			}
@@ -151,10 +198,10 @@ func (a *Service) appendOutputLocked() {
 	}
 	suffix := append([]OutputItem(nil), o.Items[tail:]...)
 	o.Items = append(append(o.Items[:tail], additions...), suffix...)
-	if !a.pendingRoundLocked(o.Round) && a.s.Output.Transition2 != "" && !seen[a.s.Output.Transition2] {
+	if !a.pendingOutputLocked(o.Kind, o.Round) && a.s.Output.Transition2 != "" && !seen[a.s.Output.Transition2] {
 		o.Items = append(o.Items, OutputItem{a.s.Output.Transition2, "transition"})
 	}
-	if o.Index >= len(o.Items) && !a.pendingRoundLocked(o.Round) {
+	if o.Index >= len(o.Items) && !a.pendingOutputLocked(o.Kind, o.Round) {
 		a.output = OutputSession{}
 	}
 }
@@ -206,7 +253,7 @@ func (a *Service) detectOutputLocked(p map[string]any) {
 	if oldPhase == "live" {
 		round = int(number(obj(old, "map"), "round")) + 1
 	}
-	if phase == "live" && a.output.ID != "" && int(number(obj(p, "map"), "round"))+1 > a.output.Round {
+	if phase == "live" && a.output.Kind == "round" && a.output.ID != "" && int(number(obj(p, "map"), "round"))+1 > a.output.Round {
 		clock := readRoundClock(p)
 		cut := clock != nil && clock.Phase == "live" && clock.Remaining <= 107
 		for steam, raw := range obj(p, "allplayers") {
@@ -225,14 +272,22 @@ func (a *Service) detectOutputLocked(p map[string]any) {
 			a.output = OutputSession{}
 		}
 	}
-	if mapPhase == "warmup" || mapPhase == "gameover" {
+	if mapPhase == "gameover" {
+		if stringField(obj(old, "map"), "phase") != "gameover" && !a.fullTriggered && a.s.Output.AutoFull {
+			a.fullTriggered = true
+			a.output = OutputSession{}
+			a.scheduleOutputLocked("full", round)
+		}
+		return
+	}
+	if mapPhase == "warmup" {
 		return
 	}
 	halfSignal := (stringField(obj(p, "phase_countdowns"), "phase") == "halftime" && stringField(obj(old, "phase_countdowns"), "phase") != "halftime") || (mapPhase == "intermission" && stringField(obj(old, "map"), "phase") != "intermission")
 	ended := phase == "over" && oldPhase != "over"
-	if !a.manualRounds[round] && !a.halfTriggered && a.s.Output.AutoHalf && (halfSignal || ended && round == a.s.Output.HalfRound) {
+	if !a.halfTriggered && a.s.Output.AutoHalf && (halfSignal || ended && round == a.s.Output.HalfRound) {
 		a.halfTriggered = true
-		if a.output.Kind == "round" && a.output.Due > 0 {
+		if a.output.Kind == "round" {
 			a.output = OutputSession{}
 		}
 		a.scheduleOutputLocked("half", round)
@@ -263,6 +318,22 @@ func (a *Service) outputRoutes(mux, api *http.ServeMux) {
 		defer a.mu.Unlock()
 		p.Transition1 = a.s.Output.Transition1
 		p.Transition2 = a.s.Output.Transition2
+		if p.HalfRound != a.s.Output.HalfRound {
+			kept := []string{}
+			for _, key := range a.s.HalfQueue {
+				for _, v := range a.s.Artifacts {
+					if v.ID == key && a.currentArtifactLocked(v) && v.Round <= p.HalfRound {
+						kept = append(kept, key)
+					}
+				}
+			}
+			for _, v := range a.s.Artifacts {
+				if a.currentArtifactLocked(v) && v.Round > a.s.Output.HalfRound && v.Round <= p.HalfRound {
+					kept = appendUnique(kept, v.ID)
+				}
+			}
+			a.s.HalfQueue = kept
+		}
 		a.s.Output = p
 		a.saveLocked()
 		respond(w, 200, map[string]bool{"ok": true})
@@ -339,7 +410,7 @@ func (a *Service) outputRoutes(mux, api *http.ServeMux) {
 		}
 		a.mu.Lock()
 		defer a.mu.Unlock()
-		if p.Kind != "round" && p.Kind != "half" {
+		if p.Kind != "round" && p.Kind != "half" && p.Kind != "full" {
 			fail(w, errors.New("未知列表"))
 			return
 		}
@@ -358,10 +429,13 @@ func (a *Service) outputRoutes(mux, api *http.ServeMux) {
 		}
 		if p.Kind == "half" {
 			if !a.s.Output.HalfManual {
-				fail(w, errors.New("半场精选正按 R1–R12 自动收集；如需手动编辑，请先关闭自动收集"))
+				fail(w, errors.New("请先关闭半场自动收集再编辑列表"))
 				return
 			}
 			a.s.HalfQueue = p.IDs
+		} else if p.Kind == "full" {
+			a.s.Output.FullManual = true
+			a.s.FullQueue = p.IDs
 		} else {
 			a.s.Queue = p.IDs
 		}
@@ -414,7 +488,7 @@ func (a *Service) outputRoutes(mux, api *http.ServeMux) {
 				a.output.Index++
 				a.output.Deadline = nowMS() + 120000
 				a.appendOutputLocked()
-				if a.output.ID != "" && a.output.Index >= len(a.output.Items) && (a.output.Kind != "round" || !a.pendingRoundLocked(a.output.Round)) {
+				if a.output.ID != "" && a.output.Index >= len(a.output.Items) && !a.pendingOutputLocked(a.output.Kind, a.output.Round) {
 					a.output = OutputSession{}
 				}
 			}

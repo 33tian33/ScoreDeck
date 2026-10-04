@@ -14,8 +14,7 @@ import (
 )
 
 type Service struct {
-	EmbedOrigin string // Set once before starting the HTTP server by the desktop launcher.
-
+	EmbedOrigin       string // Exact loopback origins supplied by ScoreDeck.
 	relayState        relayStatus
 	hudHidden         bool
 	maintenance       sync.RWMutex
@@ -23,6 +22,8 @@ type Service struct {
 	manualRounds      map[int]bool
 	roundClocks       map[string]clockSample
 	gsiDiagnostics    map[string]GSIDiagnostic
+	hudImport         CS2Launch
+	obsLaunch         CS2Launch
 	cs2Launch         CS2Launch
 	localDemo         LocalDemo
 	output            OutputSession
@@ -31,6 +32,7 @@ type Service struct {
 	outputError       string
 	hotkeyStatus      string
 	endRound          int
+	fullTriggered     bool
 	halfTriggered     bool
 	closeOnce         sync.Once
 	releaseData       func()
@@ -129,6 +131,22 @@ func New(dir, role string) (*Service, error) {
 		}
 	} else if !os.IsNotExist(e) {
 		return nil, e
+	}
+	if a.s.Config.RelayDevice == "" {
+		a.s.Config.RelayDevice = relay.ID()
+	}
+	if a.s.HighlightsVersion == 0 {
+		for _, v := range a.s.Artifacts {
+			if a.currentArtifactLocked(v) {
+				if !a.s.Output.HalfManual && v.Round <= a.s.Output.HalfRound {
+					a.s.HalfQueue = appendUnique(a.s.HalfQueue, v.ID)
+				}
+				if !a.s.Output.FullManual {
+					a.s.FullQueue = appendUnique(a.s.FullQueue, v.ID)
+				}
+			}
+		}
+		a.s.HighlightsVersion = 1
 	}
 	// Migrate the former two-second warmup / transition defaults.
 	if a.s.Config.Setup == 2 && a.s.Config.Transition == 2 {
@@ -237,13 +255,12 @@ func (a *Service) snapshot() map[string]any {
 	s := jsonCopy(a.s)
 	s.Config.OBSPassword = ""
 	s.Config.GOTVPassword = ""
-	s.Config.RelayToken = ""
-	return map[string]any{"relay": a.relayState, "gsi": jsonCopy(a.gsiDiagnostics), "cs2_launch": a.cs2Launch, "local_demo": a.localDemo, "output": a.output, "output_online": nowMS()-a.outputSeen < 3000, "output_error": a.outputError, "hotkey_status": a.hotkeyStatus, "current_round": a.gsiRound["a"] + 1, "output_url": "/output.html", "version": Version, "role": a.role, "state": s, "now": nowMS(), "observed": a.observed, "observed_at": a.observedAt, "round_clocks": jsonCopy(a.roundClocks), "storage_error": a.storageErr, "playback": a.playback, "remote_at": a.remoteAt, "remote_uncertainty_ms": a.remoteUncertainty}
+	return map[string]any{"relay": a.relayState, "gsi": jsonCopy(a.gsiDiagnostics), "hud_import": a.hudImport, "obs_launch": a.obsLaunch, "cs2_launch": a.cs2Launch, "local_demo": a.localDemo, "output": a.output, "output_online": nowMS()-a.outputSeen < 3000, "output_error": a.outputError, "hotkey_status": a.hotkeyStatus, "current_round": a.gsiRound["a"] + 1, "output_url": "/output.html", "version": Version, "role": a.role, "state": s, "now": nowMS(), "observed": a.observed, "observed_at": a.observedAt, "round_clocks": jsonCopy(a.roundClocks), "storage_error": a.storageErr, "playback": a.playback, "remote_at": a.remoteAt, "remote_uncertainty_ms": a.remoteUncertainty}
 }
 func (a *Service) configure(c Config) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if a.cs2Launch.Phase == "starting" || a.active || a.localDemo.Phase == "armed" || a.localDemo.Phase == "running" {
+	if (a.obsLaunch.Phase == "starting" || a.hudImport.Phase == "starting") || a.cs2Launch.Phase == "starting" || a.active || a.localDemo.Phase == "armed" || a.localDemo.Phase == "running" {
 		return errors.New("请先停止 Demo 联调；已有提交或录制任务，请等待完成再修改配置")
 	}
 	old := a.s.Config
@@ -253,11 +270,9 @@ func (a *Service) configure(c Config) error {
 		c.Teams.ScoreDeckManaged = false
 	}
 	c.RelayURL = relay.NormalizeURL(c.RelayURL)
-	if c.RelayToken == "" && c.RelayDevice == old.RelayDevice && c.RelayURL == old.RelayURL {
-		c.RelayToken = old.RelayToken
-	}
+	c.RelayDevice = old.RelayDevice
 	c.RelayPair = old.RelayPair
-	if c.ConnectionMode != old.ConnectionMode || c.RelayURL != old.RelayURL || c.RelayDevice != old.RelayDevice || c.RelayToken != old.RelayToken || c.RelayGroup != old.RelayGroup {
+	if c.ConnectionMode != old.ConnectionMode || c.RelayURL != old.RelayURL || c.RelayDevice != old.RelayDevice || c.RelayGroup != old.RelayGroup {
 		c.RelayPair = ""
 	}
 	if err := normalizeGOTV(&c, old); err != nil {
@@ -284,10 +299,12 @@ func (a *Service) configure(c Config) error {
 	a.liveDuration = nil
 	a.s.Queue = nil
 	a.s.HalfQueue = nil
+	a.s.FullQueue = nil
 	a.output = OutputSession{}
 	a.endRound = 0
 	a.manualRounds = nil
 	a.halfTriggered = false
+	a.fullTriggered = false
 	a.previous = map[string]map[string]any{}
 	a.gsiMap = map[string]string{}
 	a.gsiSeen = map[string]int64{}
@@ -378,7 +395,7 @@ func (a *Service) tick() {
 	a.mu.Lock()
 	a.tickDemoLocked()
 	a.tickOutputLocked()
-	if a.storageErr != "" {
+	if a.storageErr != "" || (a.obsLaunch.Phase == "starting" || a.hudImport.Phase == "starting") {
 		a.mu.Unlock()
 		return
 	}
@@ -497,6 +514,12 @@ func (a *Service) jobUpdate(jobID, status, reason string, artifacts []Artifact) 
 				a.s.Artifacts = append(a.s.Artifacts, v)
 				if a.currentArtifactLocked(v) {
 					a.s.Queue = append(a.s.Queue, v.ID)
+					if !a.s.Output.HalfManual && v.Round <= a.s.Output.HalfRound {
+						a.s.HalfQueue = appendUnique(a.s.HalfQueue, v.ID)
+					}
+					if !a.s.Output.FullManual {
+						a.s.FullQueue = appendUnique(a.s.FullQueue, v.ID)
+					}
 				}
 			}
 		}

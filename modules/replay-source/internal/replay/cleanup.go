@@ -129,12 +129,13 @@ func (a *Service) cleanupLocked() error {
 		}
 	}
 	c, out := a.s.Config, a.s.Output
-	a.s = State{Config: c, Output: out, Events: []Event{}, Jobs: []Job{}, Artifacts: []Artifact{}, Queue: []string{}, HalfQueue: []string{}, Logs: []Log{}}
+	a.s = State{Config: c, Output: out, HighlightsVersion: 1, Events: []Event{}, Jobs: []Job{}, Artifacts: []Artifact{}, Queue: []string{}, HalfQueue: []string{}, Logs: []Log{}}
 	a.output = OutputSession{}
 	a.localDemo = LocalDemo{}
 	a.endRound = 0
 	a.manualRounds = nil
 	a.halfTriggered = false
+	a.fullTriggered = false
 	a.previous = map[string]map[string]any{}
 	a.roundClocks = nil
 	a.liveDuration = nil

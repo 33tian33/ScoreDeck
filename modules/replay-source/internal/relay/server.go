@@ -2,8 +2,6 @@ package relay
 
 import (
 	"context"
-	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"io"
@@ -47,7 +45,6 @@ type pending struct {
 }
 type Server struct {
 	mu          sync.Mutex
-	credentials map[string]Credential
 	nodes       map[string]*Node
 	connections map[string]*connection
 	pending     map[string]*pending
@@ -62,7 +59,7 @@ type Server struct {
 	storageErr  error
 }
 
-func NewServer(dir string, credentials []Credential, quota int64) (*Server, error) {
+func NewServer(dir string, quota int64) (*Server, error) {
 	if quota < 1<<30 {
 		return nil, errors.New("cache quota must be at least 1 GiB")
 	}
@@ -70,22 +67,7 @@ func NewServer(dir string, credentials []Credential, quota int64) (*Server, erro
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	s := &Server{credentials: map[string]Credential{}, nodes: map[string]*Node{}, connections: map[string]*connection{}, pending: map[string]*pending{}, changed: map[string]time.Time{}, actions: map[string][]time.Time{}, transfers: map[string]*transfer{}, dir: dir, quota: quota, ctx: ctx, cancel: cancel}
-	for _, c := range credentials {
-		if !IDPattern.MatchString(c.ID) || (c.Role != "director" && c.Role != "agent") || len(c.Token) < 32 {
-			cancel()
-			return nil, errors.New("invalid device credential: id, role and token (32+ characters) required")
-		}
-		if _, ok := s.credentials[c.ID]; ok {
-			cancel()
-			return nil, errors.New("duplicate device id")
-		}
-		s.credentials[c.ID] = c
-	}
-	if len(s.credentials) == 0 {
-		cancel()
-		return nil, errors.New("no device credentials configured")
-	}
+	s := &Server{nodes: map[string]*Node{}, connections: map[string]*connection{}, pending: map[string]*pending{}, changed: map[string]time.Time{}, actions: map[string][]time.Time{}, transfers: map[string]*transfer{}, dir: dir, quota: quota, ctx: ctx, cancel: cancel}
 	raw, err := os.ReadFile(filepath.Join(dir, "nodes.json"))
 	if err == nil {
 		if err = json.Unmarshal(raw, &s.nodes); err != nil {
@@ -97,8 +79,7 @@ func NewServer(dir string, credentials []Credential, quota int64) (*Server, erro
 		return nil, err
 	}
 	for id, n := range s.nodes {
-		c, ok := s.credentials[id]
-		if !ok || n == nil || n.Role != c.Role {
+		if n == nil || !IDPattern.MatchString(id) || n.ID != id || !GroupPattern.MatchString(n.Group) || (n.Role != "director" && n.Role != "agent") {
 			delete(s.nodes, id)
 			continue
 		}
@@ -171,12 +152,6 @@ func readJSON(w http.ResponseWriter, r *http.Request, v any) error {
 	d.DisallowUnknownFields()
 	return d.Decode(v)
 }
-func (s *Server) authenticate(r *http.Request) (Credential, bool) {
-	c, ok := s.credentials[r.Header.Get("X-Replay-Device")]
-	got := sha256.Sum256([]byte(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")))
-	want := sha256.Sum256([]byte(c.Token))
-	return c, ok && strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") && subtle.ConstantTimeCompare(got[:], want[:]) == 1
-}
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { reply(w, 200, map[string]bool{"ok": true}) })
@@ -192,8 +167,8 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		if r.URL.Path != "/healthz" {
-			if _, ok := s.authenticate(r); !ok {
-				problem(w, 401, "设备认证失败")
+			if !IDPattern.MatchString(r.Header.Get("X-Replay-Device")) || !GroupPattern.MatchString(r.Header.Get("X-Replay-Group")) {
+				problem(w, 400, "设备标识或群组码无效")
 				return
 			}
 			if r.Header.Get("Origin") != "" {
@@ -288,7 +263,7 @@ func (s *Server) automaticLocked() {
 	}
 }
 func (s *Server) connect(w http.ResponseWriter, r *http.Request) {
-	cred, _ := s.authenticate(r)
+	device := r.Header.Get("X-Replay-Device")
 	up := websocket.Upgrader{HandshakeTimeout: 5 * time.Second}
 	ws, err := up.Upgrade(w, r, nil)
 	if err != nil {
@@ -298,7 +273,7 @@ func (s *Server) connect(w http.ResponseWriter, r *http.Request) {
 	ws.SetReadLimit(12 << 20)
 	ws.SetReadDeadline(time.Now().Add(10 * time.Second))
 	var h Hello
-	if err = ws.ReadJSON(&h); err != nil || !GroupPattern.MatchString(h.Group) || len(h.Name) > 80 || h.Role != "" && h.Role != cred.Role {
+	if err = ws.ReadJSON(&h); err != nil || !GroupPattern.MatchString(h.Group) || len(h.Name) > 80 || (h.Role != "director" && h.Role != "agent") || h.Group != r.Header.Get("X-Replay-Group") {
 		return
 	}
 	c := &connection{ws: ws, out: make(chan Message, 64), done: make(chan struct{})}
@@ -309,17 +284,21 @@ func (s *Server) connect(w http.ResponseWriter, r *http.Request) {
 	}
 	s.wg.Add(1)
 	defer s.wg.Done()
-	n := s.nodes[cred.ID]
+	n := s.nodes[device]
+	if n != nil && n.Role != h.Role {
+		s.mu.Unlock()
+		return
+	}
 	if n != nil && n.Group != h.Group && time.Since(s.changed[n.ID]) < 5*time.Second {
 		s.mu.Unlock()
 		return
 	}
-	if old := s.connections[cred.ID]; old != nil {
+	if old := s.connections[device]; old != nil {
 		old.close()
 	}
 	if n == nil {
-		n = &Node{ID: cred.ID, Role: cred.Role}
-		s.nodes[cred.ID] = n
+		n = &Node{ID: device, Role: h.Role}
+		s.nodes[device] = n
 	}
 	if n.Group != h.Group {
 		s.unpairLocked(n)
@@ -327,9 +306,9 @@ func (s *Server) connect(w http.ResponseWriter, r *http.Request) {
 	}
 	n.Group = h.Group
 	n.Name = h.Name
-	n.Auto = h.Auto && cred.Role == "agent"
+	n.Auto = h.Auto && h.Role == "agent"
 	n.Online = true
-	s.connections[cred.ID] = c
+	s.connections[device] = c
 	s.publishLocked(n)
 	s.publishLocked(s.nodes[n.Peer])
 	s.automaticLocked()
@@ -338,8 +317,8 @@ func (s *Server) connect(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		c.close()
 		s.mu.Lock()
-		if s.connections[cred.ID] == c {
-			delete(s.connections, cred.ID)
+		if s.connections[device] == c {
+			delete(s.connections, device)
 			n.Online = false
 			s.publishLocked(s.nodes[n.Peer])
 			s.saveLocked()
@@ -382,7 +361,7 @@ func (s *Server) connect(w http.ResponseWriter, r *http.Request) {
 		}
 		s.mu.Lock()
 		p := s.pending[m.ID]
-		if p != nil && p.agent == cred.ID && n.Pair == p.pair && m.Pair == p.pair && s.connections[cred.ID] == c {
+		if p != nil && p.agent == device && n.Pair == p.pair && m.Pair == p.pair && s.connections[device] == c {
 			select {
 			case p.response <- m:
 			default:

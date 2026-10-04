@@ -39,7 +39,7 @@ func TestSteamLaunchFIFO(t *testing.T) {
 		t.Fatal(err)
 	}
 	payload := string(b[:n])
-	if !strings.Contains(payload, "'-applaunch' '730'") || !strings.Contains(payload, "'-netconport' '2211'") || !strings.Contains(payload, "'+cl_demo_predict' '0'") || !strings.HasSuffix(payload, "\n") {
+	if !strings.Contains(payload, "'-applaunch' '730'") || !strings.Contains(payload, "'-netconport' '2211'") || !strings.Contains(payload, "'+cl_demo_predict' '0'") || !strings.Contains(payload, "'+spec_show_xray' '1'") || !strings.HasSuffix(payload, "\n") {
 		t.Fatal(payload)
 	}
 	link := filepath.Join(t.TempDir(), "link")

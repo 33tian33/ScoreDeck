@@ -14,6 +14,7 @@ import (
 func outputFixture(t *testing.T) *Service {
 	s := testService(t, "director")
 	s.s.Output.HalfManual = true
+	s.s.Output.FullManual = true
 	c := s.s.Config
 	s.s.Jobs = []Job{{ID: "job", Match: c.Match, Map: c.Map, Epoch: c.Epoch}, {ID: "old", Match: c.Match, Map: c.Map, Epoch: c.Epoch - 1}}
 	for i, k := range []string{"a", "b", "c", "old"} {

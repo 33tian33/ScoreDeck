@@ -539,6 +539,20 @@ async function loadState() {
   render(await response.json());
 }
 
+document.querySelector('#clear-cache').addEventListener('click', async (event) => {
+  const button = event.currentTarget, status = document.querySelector('#cache-status');
+  button.disabled = true; status.textContent = '正在清除缓存…';
+  try {
+    const response = await fetch('/api/cache/clear', {method:'POST', headers:{'X-Radar-Cache':'clear'}});
+    const result = await response.json();
+    if (!response.ok) throw Error(result.error || '清理失败');
+    stopReplayClock(); replayMode = false; replayOffsetMs = 0;
+    await loadState();
+    status.textContent = '缓存已清除；新缓存最多保留 2 小时。';
+  } catch (error) { status.textContent = '清理失败：' + error.message; }
+  finally { button.disabled = false; }
+});
+
 function connectEvents() {
   events?.close();
   events = new EventSource(`/events?half=${selectedHalf}`);

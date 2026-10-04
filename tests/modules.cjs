@@ -44,10 +44,10 @@ test('managed Replay: embedded origin, original control/output pages, persistent
   await s.action('replay','settings',{port,autoStart:false});await s.action('replay','start');
   const base=s.meta('replay').controlUrl;
   const page=await fetch(base);assert.match(page.headers.get('content-security-policy'),/frame-ancestors http:\/\/127.0.0.1:17890 http:\/\/localhost:17890;/);
-  const html=await page.text();for(const marker of ['settings-form','relay-panel','transition1','transition2','half-play','demo-path'])assert.ok(html.includes(marker),marker);
+  const html=await page.text();for(const marker of ['settings-form','relay-panel','transition1','transition2','half-play','full-play','auto-full','custom-hud-dialog','demo-path'])assert.ok(html.includes(marker),marker);
   assert.equal((await fetch(base+'output.html')).status,200);
   assert.equal((await fetch(base+'api/config',{method:'POST',headers:{Origin:'https://evil.example'},body:'{}'})).status,403);
-  const state=await(await fetch(base+'api/state')).json();assert.equal(state.version,'0.2.1');assert.equal(state.role,'director');
+  const state=await(await fetch(base+'api/state')).json();assert.equal(state.version,'0.2.5');assert.equal(state.role,'director');
   await s.action('replay','stop');assert.equal(s.meta('replay').phase,'stopped');assert.ok(fs.existsSync(path.join(s.meta('replay').dataDir,'state.json')));
   const legacy=path.join(dir,'old-replay');fs.cpSync(s.meta('replay').dataDir,legacy,{recursive:true});
   const stored=JSON.parse(fs.readFileSync(path.join(legacy,'state.json'),'utf8'));stored.paths={check:path.join(legacy,'media','clip.mp4')};fs.writeFileSync(path.join(legacy,'state.json'),JSON.stringify(stored));

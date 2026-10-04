@@ -1,10 +1,9 @@
 // Optional packaged-app browser smoke test. Uses temporary data, synthetic
-// credentials, loopback sockets and a temporary GSI cfg directory only.
+// group codes, loopback sockets and a temporary GSI cfg directory only.
 const { _electron, chromium } = require(process.env.PLAYWRIGHT_MODULE || '@playwright/test');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const crypto = require('node:crypto');
 const net = require('node:net');
 const {spawn} = require('node:child_process');
 const assert = require('node:assert/strict');
@@ -18,10 +17,10 @@ async function main(){
  let browser;
  try{
   const cp=await port(),dp=await port(),ap=await port();
-  const creds=[{id:'director-ui',role:'director',token:crypto.randomBytes(24).toString('hex')},{id:'agent-ui',role:'agent',token:crypto.randomBytes(24).toString('hex')}];
-  fs.writeFileSync(path.join(temp,'devices.json'),JSON.stringify(creds),{mode:0o600});fs.mkdirSync(path.join(temp,'cfg'));
-  await start(path.join(root,`dist/ProjectReplay-Relay-0.2.0-linux-${arch}/replay-relay`),['-listen',`127.0.0.1:${cp}`,'-credentials',path.join(temp,'devices.json'),'-data',path.join(temp,'cloud')],cp);
-  const exe=path.join(root,`dist/ProjectReplay-0.2.0-linux-${arch}/project-replay`);
+  const creds=[{role:'director'},{role:'agent'}];
+  fs.mkdirSync(path.join(temp,'cfg'));
+  await start(path.join(root,`dist/ProjectReplay-Relay-0.2.5-linux-${arch}/replay-relay`),['-listen',`127.0.0.1:${cp}`,'-data',path.join(temp,'cloud')],cp);
+  const exe=path.join(root,`dist/ProjectReplay-0.2.5-linux-${arch}/project-replay`);
   await start(exe,['-role','director','-listen',`127.0.0.1:${dp}`,'-data',path.join(temp,'director'),'-no-browser'],dp);
   await start(exe,['-role','agent','-listen',`127.0.0.1:${ap}`,'-data',path.join(temp,'agent'),'-cs2-cfg',path.join(temp,'cfg'),'-no-browser'],ap);
   const app=path.join(temp,'electron.cjs');fs.writeFileSync(app,"const {app,BrowserWindow}=require('electron');app.whenReady().then(()=>new BrowserWindow({width:1440,height:1100,show:false}).loadURL('about:blank'));\n");
@@ -37,15 +36,14 @@ async function main(){
    assert.equal(await page.locator('[name=connection_mode]').inputValue(),'lan');
    await page.locator('[name=connection_mode]').selectOption('relay');
    await page.locator('[name=relay_url]').fill(`http://127.0.0.1:${cp}`);
-   await page.locator('[name=relay_device]').fill(cred.id);
-   await page.locator('[name=relay_token]').fill(cred.token);
+   assert.equal(await page.locator('[name=relay_device],[name=relay_token]').count(),0);
    await page.locator('[name=relay_group]').fill('0001');
    await page.locator('[name=relay_name]').fill(cred.role==='director'?'测试主机':'测试录制机');
    await page.locator('#settings-form button[type=submit]').click();
    await page.locator('#settings').waitFor({state:'hidden'});
    await page.waitForFunction(()=>document.querySelector('#relay-status').textContent.includes('已连接'));
   }
-  console.log('Pairing manually');await director.locator('#relay-search').click();await director.locator('[data-relay-pair=agent-ui]').click();
+  console.log('Pairing manually');await director.locator('#relay-search').click();await director.locator('[data-relay-pair]').click();
   await agent.locator('#relay-accept').waitFor({state:'visible'});await agent.locator('#relay-accept').click();
   await director.waitForFunction(()=>document.querySelector('#relay-status').textContent.includes('已配对'));
   await director.locator('#relay-unpair').click();await agent.waitForFunction(()=>document.querySelector('#relay-status').textContent.includes('等待同组设备'));
@@ -53,11 +51,11 @@ async function main(){
   await director.waitForFunction(()=>document.querySelector('#relay-status').textContent.includes('已配对'));
   await agent.waitForFunction(()=>document.querySelector('#relay-status').textContent.includes('对端在线'));
   await director.screenshot({path:path.join(temp,'director.png'),fullPage:true});await agent.screenshot({path:path.join(temp,'agent.png'),fullPage:true});
-  await agent.locator('#settings-btn').click();assert.equal(await agent.locator('[name=relay_group]').inputValue(),'0001');assert.equal(await agent.locator('[name=relay_token]').inputValue(),'');await agent.locator('[name=relay_group]').fill('0002');await agent.locator('#settings-form button[type=submit]').click();await agent.locator('#settings').waitFor({state:'hidden'});
+  await agent.locator('#settings-btn').click();assert.equal(await agent.locator('[name=relay_group]').inputValue(),'0001');assert.equal(await agent.locator('[name=relay_token]').count(),0);await agent.locator('[name=relay_group]').fill('0002');await agent.locator('#settings-form button[type=submit]').click();await agent.locator('#settings').waitFor({state:'hidden'});
   await director.waitForFunction(()=>document.querySelector('#relay-status').textContent.includes('等待同组设备'));
   await director.locator('#relay-search').click();await director.waitForFunction(()=>document.querySelector('#relay-nodes').textContent.includes('暂无在线的同组设备'));
   assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({ok:true,checks:['LAN default','group leading zero','manual pairing','automatic pairing','group isolation','credential hidden','no page errors'],evidence:temp}));
+  console.log(JSON.stringify({ok:true,checks:['LAN default','group leading zero','manual pairing','automatic pairing','group isolation','no token or device ID inputs','no page errors'],evidence:temp}));
  }finally{
   if(browser)await browser.close();
   for(const child of processes)child.kill('SIGTERM');

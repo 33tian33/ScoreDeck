@@ -3,7 +3,6 @@ package replay
 import (
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"path/filepath"
 	"regexp"
@@ -27,6 +26,25 @@ func (a *Service) recordingHUDCommand() string {
 	defer a.mu.Unlock()
 	return a.recordingHUDCommandLocked()
 }
+func showGameUI(address string) error {
+	n, err := openConsole(address)
+	if err != nil {
+		return err
+	}
+	defer n.conn.Close()
+	if _, err = n.queryWithTimeout(fullHUDCommand, time.Second); err != nil {
+		return err
+	}
+	reply, err := n.queryWithTimeout("cl_drawhud", time.Second)
+	if err != nil {
+		return err
+	}
+	if visible, known := hudValue(reply, "cl_drawhud"); !known || !visible {
+		return errors.New("游戏尚未确认显示原生 HUD")
+	}
+	return nil
+}
+
 func hideGameUI(address string) error {
 	n, err := openConsole(address)
 	if err != nil {
@@ -120,7 +138,7 @@ func (a *Service) hudRoutes(api *http.ServeMux) {
 	api.HandleFunc("POST /api/hud/obs", func(w http.ResponseWriter, r *http.Request) {
 		a.mu.Lock()
 		defer a.mu.Unlock()
-		if a.role != "agent" || a.active || a.localDemo.Phase == "armed" || a.localDemo.Phase == "running" || a.cs2Launch.Phase == "starting" {
+		if a.role != "agent" || a.active || a.pendingJobsLocked() || a.obsLaunch.Phase == "starting" || a.localDemo.Phase == "armed" || a.localDemo.Phase == "running" || a.cs2Launch.Phase == "starting" {
 			fail(w, errors.New("请在 Linux 空闲时安装 HUD"))
 			return
 		}
@@ -134,91 +152,42 @@ func (a *Service) hudRoutes(api *http.ServeMux) {
 			return
 		}
 		defer release()
-		_, port, err := net.SplitHostPort(r.Host)
-		if err != nil {
-			fail(w, err)
-			return
-		}
 		o, err := openOBS(a.s.Config)
 		if err != nil {
 			fail(w, err)
 			return
 		}
 		defer o.close()
-		scene, err := o.call("GetCurrentProgramScene", nil)
+		previous := a.s.HUDActiveSource
+		if previous == "" && a.s.TeamHUD {
+			previous = "Project Replay Team HUD"
+		}
+		sceneName, input, err := installHUDSource(o, a.s.HUD, r.Host, previous)
 		if err != nil {
 			fail(w, err)
 			return
 		}
-		sceneName := stringField(scene, "currentProgramSceneName")
-		const input = "Project Replay Team HUD"
-		settings := map[string]any{"url": "http://127.0.0.1:" + port + "/hud.html", "width": 1920, "height": 1080, "shutdown": false, "restart_when_active": false}
-		// Check global input existence separately from scene membership.
-		inputs, err := o.call("GetInputList", nil)
-		if err != nil {
-			fail(w, err)
-			return
-		}
-		exists := false
-		list, _ := inputs["inputs"].([]any)
-		for _, raw := range list {
-			m, _ := raw.(map[string]any)
-			if stringField(m, "inputName") == input {
-				exists = true
-			}
-		}
-		var item map[string]any
-		if !exists {
-			item, err = o.call("CreateInput", map[string]any{"sceneName": sceneName, "inputName": input, "inputKind": "browser_source", "inputSettings": settings, "sceneItemEnabled": true})
-		} else {
-			_, err = o.call("SetInputSettings", map[string]any{"inputName": input, "inputSettings": settings, "overlay": true})
-			if err == nil {
-				item, err = o.call("GetSceneItemId", map[string]any{"sceneName": sceneName, "sourceName": input})
-				if err != nil {
-					item, err = o.call("CreateSceneItem", map[string]any{"sceneName": sceneName, "sourceName": input, "sceneItemEnabled": true})
-				}
-			}
-		}
-		if err != nil {
-			fail(w, err)
-			return
-		}
-		itemID := number(item, "sceneItemId")
-		_, err = o.call("SetSceneItemEnabled", map[string]any{"sceneName": sceneName, "sceneItemId": itemID, "sceneItemEnabled": true})
-		if err != nil {
-			fail(w, err)
-			return
-		}
-		items, err := o.call("GetSceneItemList", map[string]any{"sceneName": sceneName})
-		if err != nil {
-			fail(w, err)
-			return
-		}
-		rows, _ := items["sceneItems"].([]any)
-		_, err = o.call("SetSceneItemIndex", map[string]any{"sceneName": sceneName, "sceneItemId": itemID, "sceneItemIndex": max(0, len(rows)-1)})
-		if err != nil {
-			fail(w, err)
-			return
-		}
-		video, err := o.call("GetVideoSettings", nil)
-		if err != nil {
-			fail(w, err)
-			return
-		}
-		_, err = o.call("SetSceneItemTransform", map[string]any{"sceneName": sceneName, "sceneItemId": itemID, "sceneItemTransform": map[string]any{"positionX": 0, "positionY": 0, "alignment": 5, "scaleX": number(video, "baseWidth") / 1920, "scaleY": number(video, "baseHeight") / 1080}})
-		if err != nil {
-			fail(w, err)
-			return
-		}
-		if a.s.Config.Mode == "live" {
-			if err := hideGameUI(a.s.Config.NetCon); err != nil {
-				fail(w, fmt.Errorf("OBS HUD 已安装，但关闭游戏 UI 失败：%w", err))
-				return
-			}
-		}
-		a.s.TeamHUD = true
+		a.s.HUDActiveSource = input
+		a.s.TeamHUD = !a.s.HUD.KeepNative
 		a.hudHidden = false
+		warning := ""
+		if a.s.Config.Mode == "live" {
+			var gameErr error
+			if a.s.TeamHUD {
+				gameErr = hideGameUI(a.s.Config.NetCon)
+			} else {
+				gameErr = showGameUI(a.s.Config.NetCon)
+			}
+			if gameErr != nil {
+				warning = "HUD 已接入 OBS；游戏原生 HUD 状态尚未同步，启动 CS2 后请再次应用 HUD：" + gameErr.Error()
+			}
+		}
 		a.saveLocked()
-		respond(w, 200, map[string]any{"ok": true, "scene": sceneName})
+		if a.storageErr != "" {
+			fail(w, errors.New(a.storageErr))
+			return
+		}
+		a.logLocked("info", "已接入 HUD 源："+input)
+		respond(w, 200, map[string]any{"ok": true, "scene": sceneName, "source": input, "warning": warning})
 	})
 }

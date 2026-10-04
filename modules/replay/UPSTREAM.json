@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/33tian33/Project-Replay-in-for-CS2-tournaments",
+  "release": "https://github.com/33tian33/Project-Replay-in-for-CS2-tournaments/releases/tag/v0.2.5",
+  "tag": "v0.2.5",
+  "commit": "9031004324dca6d87cb49a59ca4bfa45c6571122",
+  "publishedAt": "2026-10-04T08:09:18Z",
+  "windowsAsset": "ProjectReplay-0.2.5-windows-amd64-portable.zip",
+  "windowsAssetSha256": "b9c0003e19c31af66b2f7aa6d3d701adb60d5b0bb8d09c31106097ac5443f6d3",
+  "integration": "Built from this release source with ScoreDeck lifecycle, embedding, managed identities, WebP conversion, fonts, styling and chronological highlight collection adapters.",
+  "sourceDirectory": "../replay-source",
+  "buildCommand": "go build -buildvcs=false -trimpath -o ../replay/ProjectReplay.exe ./cmd/replay"
+}

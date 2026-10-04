@@ -1,5 +1,5 @@
 const {HUD_PORT:SD_HUD_PORT,GSI_PORT:SD_GSI_PORT,resolvePort:sdResolvePort}=require('./ports.cjs');
-let grenadeTracker, handleTrackerRequest;
+let grenadeTracker, handleTrackerRequest, cachePolicy;
 var __create = Object.create;
 
 function classifyBuy(players, side) {
@@ -411,6 +411,7 @@ var init_gsi_recorder = __esm({
           sendJson(response, 401, { ok: false, error: "invalid GSI token" });
           return;
         }
+        await cachePolicy?.ensure();
         const record = this.recordPayload(payload);
         sendJson(response, 200, {
           ok: true,
@@ -1164,9 +1165,11 @@ var init_gsi_pipeline = __esm({
         if (!this.synchronizer.running) this.synchronizer.start();
       }
       #handleRecord(record) {
+        if (this.cachePaused) return;
         this.ingestRecord(record);
       }
       #emitFrame(frame) {
+        if (this.cachePaused) return;
         this.frameCount += 1;
         this.latestFrame = frame;
         this.frameCache?.append(frame);
@@ -1829,6 +1832,15 @@ var init_hud_server = __esm({
       async #handleRequest(request, response) {
         const requestUrl = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
         const pathname = requestUrl.pathname;
+        if (pathname === '/api/cache/clear') {
+          if (request.method !== 'POST') { sendJson2(response, 405, {error:'method'}); return; }
+          if ((request.headers.origin && request.headers.origin !== requestUrl.origin) || request.headers['x-radar-cache'] !== 'clear') {
+            sendJson2(response, 403, {error:'origin'}); return;
+          }
+          const result = await cachePolicy.ensure(true);
+          sendJson2(response, 200, result); return;
+        }
+        if (pathname.startsWith('/api/') || pathname === '/events') await cachePolicy?.ensure();
         if(handleTrackerRequest && await handleTrackerRequest(request,response,requestUrl))return;
         if (request.method === "GET" && (pathname === "/" || pathname === "/output")) {
           await serveFile(response, (0, import_node_path3.join)(PUBLIC_DIR, "index.html"));
@@ -1992,6 +2004,56 @@ var init_hud_server = __esm({
 });
 
 // src/cli.mjs
+function createCachePolicy({tempDir, frameCache, pipeline, trajectoryStore, hud, ...options}) {
+  const {CachePolicy} = require('./cache-policy.cjs');
+  let resume = false;
+  return new CachePolicy({rootDir:tempDir, activeDir:frameCache.matchDir, ...options,
+    async beforeRemove() {
+      resume = frameCache.started;
+      pipeline.cachePaused = true;
+      pipeline.synchronizer.stop();
+      const stream = pipeline.recorder.stream;
+      pipeline.recorder.stream = null;
+      if (stream) {
+        const closed = require('node:events').once(stream, 'close');
+        stream.end();
+        await closed;
+      }
+      await frameCache.close();
+      frameCache.pending.clear(); frameCache.stats.clear();
+      trajectoryStore.trajectories.clear(); trajectoryStore.roundBuys.clear();
+      pipeline.merger = new GsiStateMerger();
+      pipeline.rounds = new RoundStateMachine();
+      pipeline.lastSnapshot = null; pipeline.latestFrame = null;
+      const sync = pipeline.synchronizer;
+      sync.samples = []; sync.sampleCursor = 0; sync.lastSample = null;
+      sync.originNs = null; sync.nextFrameIndex = 0;
+      if (grenadeTracker) {
+        grenadeTracker.stop('缓存已清除', false);
+        grenadeTracker.records.clear(); grenadeTracker.state = null;
+        grenadeTracker.lastAt = null; grenadeTracker.context = null;
+        grenadeTracker.lastTarget = null; grenadeTracker.lastCamera = null;
+        grenadeTracker.cameraSelection = null; grenadeTracker.returnSelection = null; grenadeTracker.pendingReturn = null;
+      }
+      hud.latestFrame = null;
+      Object.assign(hud.displaySettings, {replay:false, playing:false, offset:0,
+        revision:(hud.displaySettings.revision || 0) + 1, updatedAt:Date.now()});
+      if (hud.displaySettingsFile) {
+        const fs = require('node:fs');
+        fs.writeFileSync(hud.displaySettingsFile+'.tmp', JSON.stringify(hud.displaySettings));
+        fs.renameSync(hud.displaySettingsFile+'.tmp', hud.displaySettingsFile);
+      }
+      hud.broadcast();
+    },
+    async afterRemove() {
+      if (resume) {
+        await frameCache.start();
+        pipeline.recorder.stream = require('node:fs').createWriteStream(require('node:path').join(frameCache.matchDir, 'raw.ndjson'), {flags:'a'});
+      }
+      pipeline.cachePaused = false;
+    }
+  });
+}
 var cli_exports = {};
 function readArg(name, fallback) {
   const index = process.argv.indexOf(name);
@@ -2040,6 +2102,8 @@ async function main() {
   if (!Number.isInteger(port) || port < 0 || port > 65535 || !Number.isInteger(hud.port) || hud.port < 0 || hud.port > 65535) {
     throw new Error(`invalid port: GSI=${port}, HUD=${hud.port}`);
   }
+  cachePolicy = createCachePolicy({tempDir, frameCache, pipeline, trajectoryStore, hud});
+  await cachePolicy.ensure();
   await frameCache.start();
   const restoredFrameCount = await trajectoryStore.loadCache(frameCache);
   const address = await pipeline.start({ host, port });
@@ -2059,6 +2123,7 @@ async function main() {
     console.log(`
 Received ${signal}; stopping recorder...`);
     try {
+      await cachePolicy.close();
       await pipeline.stop();
       console.log(JSON.stringify(pipeline.diagnostics(), null, 2));
     } finally {

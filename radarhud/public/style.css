@@ -35,6 +35,9 @@ body {
 }
 
 button { font: inherit; }
+.cache-controls { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:12px; }
+#clear-cache { padding:8px 14px; border:1px solid var(--line); border-radius:6px; color:var(--accent); background:var(--panel); cursor:pointer; }
+#clear-cache:disabled { opacity:.5; cursor:wait; }
 .app-shell { width: min(1180px, calc(100vw - 44px)); margin: 0 auto; padding: 30px 0 22px; }
 .topbar, .top-meta, .map-info, .connection, .radar-toolbar, footer, .radar-footer, .radar-legend, .half-switch { display: flex; align-items: center; }
 .topbar { justify-content: space-between; margin-bottom: 18px; gap: 22px; }

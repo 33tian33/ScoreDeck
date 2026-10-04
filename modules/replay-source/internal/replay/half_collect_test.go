@@ -80,3 +80,22 @@ func TestAutoHalfCollectionChronologyAndIsolation(t *testing.T) {
 		t.Fatal("old session leaked")
 	}
 }
+
+func TestScoreDeckManualHighlightsDoNotCollectNewClips(t *testing.T) {
+	s := testService(t, "director")
+	s.s.Output.HalfManual = true
+	s.s.Output.FullManual = true
+	c := s.s.Config
+	s.s.Jobs = []Job{{ID: "manual-job", Match: c.Match, Map: c.Map, Epoch: c.Epoch,
+		Events: []Event{{ID: "manual-kill", Round: 1, Kills: 1}}}}
+	s.jobUpdate("manual-job", "READY", "", []Artifact{{ID: "manual-clip", EventID: "manual-kill", JobID: "manual-job", Round: 1, Duration: 1.5}})
+	if len(s.s.HalfQueue) != 0 || len(s.s.FullQueue) != 0 {
+		t.Fatal("manual collection changed", s.s.HalfQueue, s.s.FullQueue)
+	}
+	s.s.Output.HalfManual = false
+	s.s.Output.FullManual = false
+	s.saveLocked()
+	if len(s.s.HalfQueue) != 1 || len(s.s.FullQueue) != 1 {
+		t.Fatal("automatic backfill missing")
+	}
+}

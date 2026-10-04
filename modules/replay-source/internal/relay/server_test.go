@@ -10,14 +10,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 )
 
+type testDevice struct{ ID, Role string }
+
 type testPeer struct {
-	credential Credential
+	credential testDevice
 	group      string
 	mu         sync.Mutex
 	node       Node
@@ -37,10 +38,10 @@ func eventually(t *testing.T, f func() bool) {
 	}
 	t.Fatal("timed out waiting for relay state")
 }
-func newTestRelay(t *testing.T) (*Server, *httptest.Server, []Credential) {
+func newTestRelay(t *testing.T) (*Server, *httptest.Server, []testDevice) {
 	t.Helper()
-	cs := []Credential{{"d1", "director", ID()}, {"d2", "director", ID()}, {"a1", "agent", ID()}, {"a2", "agent", ID()}}
-	s, e := NewServer(t.TempDir(), cs, 1<<30)
+	cs := []testDevice{{"d1", "director"}, {"d2", "director"}, {"a1", "agent"}, {"a2", "agent"}}
+	s, e := NewServer(t.TempDir(), 1<<30)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -48,7 +49,7 @@ func newTestRelay(t *testing.T) (*Server, *httptest.Server, []Credential) {
 	t.Cleanup(func() { s.Close(); h.Close() })
 	return s, h, cs
 }
-func startPeer(t *testing.T, h *httptest.Server, c Credential, group string, auto bool, media func(context.Context, Message)) *testPeer {
+func startPeer(t *testing.T, h *httptest.Server, c testDevice, group string, auto bool, media func(context.Context, Message)) *testPeer {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	p := &testPeer{credential: c, group: group, cancel: cancel, done: make(chan struct{})}
@@ -57,7 +58,7 @@ func startPeer(t *testing.T, h *httptest.Server, c Credential, group string, aut
 	}
 	go func() {
 		defer close(p.done)
-		Run(ctx, h.URL, c.ID, c.Token, Hello{Group: group, Auto: auto}, func(n Node) { p.mu.Lock(); p.node = n; p.mu.Unlock() }, func(ctx context.Context, m Message) Message { return Message{Status: 200, Body: []byte(`{"ok":true}`)} }, media)
+		Run(ctx, h.URL, c.ID, Hello{Role: c.Role, Group: group, Auto: auto}, func(n Node) { p.mu.Lock(); p.node = n; p.mu.Unlock() }, func(ctx context.Context, m Message) Message { return Message{Status: 200, Body: []byte(`{"ok":true}`)} }, media)
 	}()
 	t.Cleanup(func() { cancel(); <-p.done })
 	eventually(t, func() bool { return p.snapshot().Online })
@@ -67,7 +68,7 @@ func callPeer(t *testing.T, h *httptest.Server, p *testPeer, method, path string
 	t.Helper()
 	b, _ := json.Marshal(body)
 	req, _ := http.NewRequest(method, h.URL+path, bytes.NewReader(b))
-	Headers(req, p.credential.ID, p.credential.Token, p.group, p.snapshot().Pair)
+	Headers(req, p.credential.ID, p.group, p.snapshot().Pair)
 	res, e := http.DefaultClient.Do(req)
 	if e != nil {
 		t.Fatal(e)
@@ -108,7 +109,7 @@ func TestGroupIsolationManualAutoAndNoStealing(t *testing.T) {
 	}
 	// A forged same-group header is checked against authenticated server state.
 	req, _ := http.NewRequest("GET", h.URL+"/v1/nodes", nil)
-	Headers(req, cs[1].ID, cs[1].Token, "0001", oldPair)
+	Headers(req, cs[1].ID, "0001", oldPair)
 	res, e := http.DefaultClient.Do(req)
 	if e != nil {
 		t.Fatal(e)
@@ -136,7 +137,7 @@ func TestGroupIsolationManualAutoAndNoStealing(t *testing.T) {
 		t.Fatal("stole pair", code)
 	}
 	req, _ = http.NewRequest("GET", h.URL+"/v1/forward/api/time", nil)
-	Headers(req, cs[0].ID, cs[0].Token, "0001", oldPair)
+	Headers(req, cs[0].ID, "0001", oldPair)
 	res, e = http.DefaultClient.Do(req)
 	if e != nil {
 		t.Fatal(e)
@@ -166,7 +167,7 @@ func TestRelayMediaResumableHashRangeAndAck(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	req, _ := http.NewRequestWithContext(ctx, "GET", h.URL+"/v1/media/clip1", nil)
-	Headers(req, cs[0].ID, cs[0].Token, "0099", d.snapshot().Pair)
+	Headers(req, cs[0].ID, "0099", d.snapshot().Pair)
 	req.Header.Set("X-Replay-SHA256", digest)
 	req.Header.Set("X-Replay-Size", jsonNumber(len(payload)))
 	req.Header.Set("Range", "bytes=17-")
@@ -189,7 +190,7 @@ func TestRelayMediaResumableHashRangeAndAck(t *testing.T) {
 	upload := func(offset int, b []byte, want int) {
 		t.Helper()
 		r, _ := http.NewRequest("PUT", h.URL+"/v1/uploads/"+m.ID+"?offset="+jsonNumber(offset), bytes.NewReader(b))
-		Headers(r, cs[2].ID, cs[2].Token, a.group, a.snapshot().Pair)
+		Headers(r, cs[2].ID, a.group, a.snapshot().Pair)
 		res, e := http.DefaultClient.Do(r)
 		if e != nil {
 			t.Fatal(e)
@@ -233,10 +234,10 @@ func TestRelayMediaResumableHashRangeAndAck(t *testing.T) {
 	}
 }
 func jsonNumber(n int) string { b, _ := json.Marshal(n); return string(b) }
-func TestCredentialsValidationAndPersistence(t *testing.T) {
+func TestGroupValidationAndPersistence(t *testing.T) {
 	dir := t.TempDir()
-	creds := []Credential{{"d", "director", ID()}, {"a", "agent", ID()}}
-	s, e := NewServer(dir, creds, 1<<30)
+	creds := []testDevice{{"d", "director"}, {"a", "agent"}}
+	s, e := NewServer(dir, 1<<30)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -246,13 +247,13 @@ func TestCredentialsValidationAndPersistence(t *testing.T) {
 	eventually(t, func() bool { return d.snapshot().Pair != "" })
 	pair := d.snapshot().Pair
 	req, _ := http.NewRequest("GET", h.URL+"/v1/nodes", nil)
-	Headers(req, "d", strings.Repeat("x", 48), "0000", pair)
+	Headers(req, "d", "bad", pair)
 	res, e := http.DefaultClient.Do(req)
 	if e != nil {
 		t.Fatal(e)
 	}
 	res.Body.Close()
-	if res.StatusCode != 401 {
+	if res.StatusCode != 400 {
 		t.Fatal(res.StatusCode)
 	}
 	d.cancel()
@@ -261,7 +262,7 @@ func TestCredentialsValidationAndPersistence(t *testing.T) {
 	<-a.done
 	s.Close()
 	h.Close()
-	s, e = NewServer(dir, creds, 1<<30)
+	s, e = NewServer(dir, 1<<30)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -314,7 +315,7 @@ func TestConcurrentPairRequestsAndRevokedMedia(t *testing.T) {
 	send := func(data []byte, code int) {
 		t.Helper()
 		req, _ := http.NewRequest("PUT", h.URL+"/v1/uploads/"+id+"?offset=0", bytes.NewReader(data))
-		Headers(req, cs[2].ID, cs[2].Token, "4321", tr.pair)
+		Headers(req, cs[2].ID, "4321", tr.pair)
 		res, e := http.DefaultClient.Do(req)
 		if e != nil {
 			t.Fatal(e)
