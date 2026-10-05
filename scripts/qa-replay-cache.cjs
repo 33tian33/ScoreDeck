@@ -21,7 +21,7 @@ const free=()=>new Promise(resolve=>{const s=net.createServer().listen(0,'127.0.
     await page.screenshot({path:path.resolve('verification/radar-cache-2.18.7.png'),fullPage:true});
     await page.goto(radar.meta().outputUrl);assert.equal(await page.locator('#clear-cache').isVisible(),false);
     await page.goto(replay.meta('replay').controlUrl);
-    await page.waitForFunction(()=>document.querySelector('.version').textContent==='0.2.5');
+    await page.waitForFunction(()=>document.querySelector('.version').textContent==='0.2.6');
     assert.equal(await page.locator('#auto-full').isChecked(),true);
     assert.equal(await page.locator('#auto-half-collect').isChecked(),true);
     assert.equal(await page.locator('#full-play').isVisible(),true);
@@ -31,8 +31,8 @@ const free=()=>new Promise(resolve=>{const s=net.createServer().listen(0,'127.0.
     assert.equal(await page.locator('[name="relay_token"]').count(),0);
     assert.equal(await page.locator('[name="relay_group"]').count(),1);
     await page.locator('[data-close="settings"]').first().click();
-    await page.screenshot({path:path.resolve('verification/replay-0.2.5-scoredeck.png'),fullPage:true});
+    await page.screenshot({path:path.resolve('verification/replay-0.2.6-scoredeck.png'),fullPage:true});
     assert.deepEqual(errors,[]);
-    console.log('PASS: Radar clear button and output isolation; Replay 0.2.5 console, full highlights, managed teams, group-code settings; no browser errors.');
+    console.log('PASS: Radar clear button and output isolation; Replay 0.2.6 console, full highlights, managed teams, group-code settings; no browser errors.');
   } finally {await browser?.close();await replay.close();await radar.close();fs.rmSync(dir,{recursive:true,force:true});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

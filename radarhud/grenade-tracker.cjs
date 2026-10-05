@@ -215,10 +215,11 @@ class GrenadeTracker {
     // CS2 requires spec_mode 1 BEFORE selecting a player (CSDM JSON actions).
     const name=String(player.name||'');
     const safe=name.length>0&&name.length<128&&!/[";\\\r\n\0]/.test(name)&&!/^\d+$/.test(name)&&!(this.state.players||[]).some(p=>String(p.entity_id)!==String(player.entity_id)&&String(p.name||'').toLowerCase().includes(name.toLowerCase()));
-    const command='spec_autodirector 0; spec_mode '+this.config.eyeMode+'; '+(safe?'spec_player "'+name+'"':'spec_next');
+    if(!safe){this.message='无法直接返回：原选手名称无法唯一、安全地定位，请手动选择观战选手';return;}
+    const command='spec_autodirector 0; spec_mode '+this.config.eyeMode+'; spec_player "'+name+'"';
     try{
       this.link.clearCamera();this.link.write(command);this.lastCommand=command;
-      this.pendingReturn={...selection,returnName:name,started:this.clock(),sentAt:this.clock(),serial:this.sampleSerial,steps:safe?0:1,maxSteps:Math.min(64,(this.state.players||[]).filter(p=>Number(p.state?.health)>0).length+1)};
+      this.pendingReturn={...selection,returnName:name,started:this.clock(),serial:this.sampleSerial};
       this.message='已发送返回 '+name+' 的指令，等待 GSI 目标确认';
     }catch(e){this.message='返回失败：'+e.message;}
   }
@@ -229,12 +230,9 @@ class GrenadeTracker {
     if(String(this.state.player?.steamid)===String(r.returnId)){
       this.pendingReturn=null;this.returnSelection=null;this.message='GSI 目标身份匹配：'+r.returnName+'；第一人称视角请在游戏中确认';return;
     }
-    if(now-r.sentAt<300)return;
     const alive=(this.state.players||[]).some(p=>String(p.entity_id)===String(r.returnId)&&Number(p.state?.health)>0);
-    if(!alive||r.steps>=r.maxSteps){this.pendingReturn=null;this.message='未能返回原选手，请重试或手动接管';return;}
-    // Bounded, feedback-driven fallback also supports duplicate/unsafe player names.
-    try{this.link.write('spec_mode '+this.config.eyeMode+'; spec_next');r.steps++;r.sentAt=now;r.serial=this.sampleSerial;}
-    catch(e){this.pendingReturn=null;this.message='返回失败：'+e.message;}
+    if(!alive){this.pendingReturn=null;this.returnSelection=null;this.message='原选手已阵亡或离开，请手动选择观战选手';return;}
+    // GSI only confirms the direct selection; never cycle through other players.
   }
   select(type,player,now=this.clock()){
     const candidates=[...this.records.values()].filter(g=>kind(g.type)===type);

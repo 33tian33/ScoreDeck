@@ -44,12 +44,26 @@ test('return uses name after first-person mode, works without HUD slot and confi
  assert.equal(t.link.commands.at(-1),'spec_autodirector 0; spec_mode 1; spec_player "Alpha"');assert.equal(t.tracker.status().returning,true);
  t.step(50,[]);assert.equal(t.tracker.status().returning,false);assert.match(t.tracker.message,/GSI 目标身份匹配：Alpha.*第一人称视角请在游戏中确认/);
 });
-test('unsafe or duplicate names use bounded GSI-driven cycling, cancelled by a new camera',()=>{
- const t=setup();t.players[0].name='bad";quit';t.step(0,[]);t.step(50,[grenade('1','frag')]);t.tracker.start('frag');t.tracker.returnCamera();assert.ok(t.link.commands.at(-1).endsWith('; spec_next'));assert.ok(!t.link.commands.some(c=>c.includes('quit')));
+test('unsafe or ambiguous names never cycle or select another player',()=>{
+ for(const name of ['bad";quit','Beta','Bet','123','']){
+ const t=setup();t.players[0].name=name;t.step(0,[]);t.step(50,[grenade('1','frag')]);t.tracker.start('frag');const before=t.link.commands.length;t.tracker.returnCamera();
+ assert.equal(t.link.commands.length,before);assert.match(t.tracker.message,/无法直接返回/);
  const d=t.data([]);d.player.steamid=t.players[1].entity_id;
  for(let i=0;i<8;i++){t.advance(310);t.tracker.ingest(d);}
- assert.equal(t.tracker.pendingReturn,null);assert.equal(t.link.commands.filter(c=>c.includes('spec_next')).length,3);
+ assert.equal(t.tracker.pendingReturn,null);assert.equal(t.link.commands.length,before);
  const c=t.tracker.cameraStatus();t.tracker.goCamera({id:'N01',mapName:c.mapName,mapEpoch:c.mapEpoch});const n=t.link.commands.length;t.advance(310);t.tracker.ingest(d);t.tracker.tick();assert.equal(t.link.commands.length,n);
+ }
+});
+test('delayed or missing GSI confirmation never cycles away from the direct return target',()=>{
+ for(const confirmed of [true,false]){
+ const t=setup();t.step(0,[]);t.step(50,[grenade('1','frag')]);t.tracker.start('frag');t.tracker.returnCamera();const n=t.link.commands.length;
+ const d=t.data([]);d.player.steamid=t.players[1].entity_id;
+ for(let i=0;i<12;i++){t.advance(350);t.tracker.ingest(d);t.tracker.tick();}
+ assert.equal(t.link.commands.length,n);assert.ok(t.tracker.pendingReturn);
+ t.advance(confirmed?250:350);if(confirmed)d.player.steamid=t.players[0].entity_id;
+ t.tracker.ingest(d);assert.equal(t.tracker.pendingReturn,null);assert.equal(t.link.commands.length,n);
+ assert.match(t.tracker.message,confirmed?/GSI 目标身份匹配：Alpha/:/未获确认/);
+ }
 });
 test('return timeout does not falsely claim success, map change cancels retries',()=>{
  const t=setup();t.step(0,[]);t.step(50,[grenade('1','frag')]);t.tracker.start('frag');t.tracker.stop();t.advance(3001);t.tracker.tick();assert.equal(t.tracker.pendingReturn,null);assert.match(t.tracker.message,/未获确认/);

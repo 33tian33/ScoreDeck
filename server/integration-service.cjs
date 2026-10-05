@@ -31,7 +31,7 @@ function createIntegrationService({dataDir,moduleRoot=path.join(__dirname,'..','
   const url=id=>`http://127.0.0.1:${prefs[id].port}`;
   const identity=require('./integration-identity.cjs').createIdentitySync({getState,dataDir,prefs,records,url});
   function record(id){if(!Object.hasOwn(records,id))throw Error('未知模块');return records[id];}
-  function meta(id){const r=record(id);return {id,name:names[id],version:id==='replay'?'0.2.5':'0.6.4-sd',...prefs[id],identity:identity.meta(id),phase:r.phase,error:r.error,generation:r.generation,controlUrl:url(id)+'/',outputUrl:url(id)+(id==='replay'?'/output.html':'/overlay?output=program'),dataDir:dataPath(id),logFile:path.join(root,id+'.log'),busy:r.busy};}
+  function meta(id){const r=record(id);return {id,name:names[id],version:id==='replay'?'0.2.6':'0.6.4-sd',...prefs[id],identity:identity.meta(id),phase:r.phase,error:r.error,generation:r.generation,controlUrl:url(id)+'/',outputUrl:url(id)+(id==='replay'?'/output.html':'/overlay?output=program'),dataDir:dataPath(id),logFile:path.join(root,id+'.log'),busy:r.busy};}
   function all(){return Object.fromEntries(Object.keys(records).map(id=>[id,meta(id)]));}
   function prepareVoice(){const d=dataPath('voicebridge');fs.mkdirSync(d,{recursive:true});const f=path.join(d,'.env');if(!fs.existsSync(f))fs.copyFileSync(path.join(moduleRoot,'voicebridge','.env.example'),f);}
   async function prepareReplay(){

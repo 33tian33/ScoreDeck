@@ -1900,6 +1900,7 @@ var init_hud_server = __esm({
           const f = this.latestFrame, s = f?.state, m = s?.map;
           sendJson2(response, 200, { connected: Boolean(s), sourceAgeMs: f?.source_age_ms ?? null,
             phase: s?.phase_countdowns?.phase ?? s?.round?.phase ?? m?.phase ?? "waiting",
+            phaseEndsIn: s?.phase_countdowns?.phase_ends_in == null || s.phase_countdowns.phase_ends_in === '' ? null : Number.isFinite(Number(s.phase_countdowns.phase_ends_in)) ? Number(s.phase_countdowns.phase_ends_in) : null,
             map: { name: m?.name ?? "", phase: m?.phase ?? "waiting", round: m?.round ?? null,
               teamCT: m?.team_ct ?? null, teamT: m?.team_t ?? null }, allplayers: s?.raw?.allplayers ?? {}, receivedAt: s?.received_at ?? null });
           return;

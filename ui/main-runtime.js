@@ -16043,7 +16043,7 @@ function Wt({ state: e, setState: t, meta: n, connection: r }) {
                 children: [
                   (0, O.jsx)(`strong`, { children: `ScoreDeck` }),
                   (0, O.jsx)(`span`, {
-                    children: `导播工作台 · 2.18.9`,
+                    children: `导播工作台 · 2.18.10`,
                   }),
                 ],
               }),

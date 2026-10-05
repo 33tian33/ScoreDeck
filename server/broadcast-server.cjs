@@ -244,8 +244,9 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
 
   let latestGSI=null;
   const consumeGSI=g=>{latestGSI=g;const next=structuredClone(state);if(matchData.ingest(next,g)){next.revision=Number(state.revision||0)+1;next.lastSavedAt=new Date().toISOString();atomicWrite(stateFile,next);state=next;broadcast('state',state);}};
-  const automation=require('./halftime-auto.cjs').createAutomation({file:path.join(resolvedDataDir,'halftime-auto-state.json'),getState:()=>state,onGSI:consumeGSI,readGSI:async()=>{if(!radar.meta().running)return {connected:false};const r=await fetch(radar.meta().controlUrl+'api/phase',{signal:AbortSignal.timeout(2000)});if(!r.ok)throw Error('GSI 服务未连接');return r.json();},commit:next=>{next.revision=Number(state.revision||0)+1;next.lastSavedAt=new Date().toISOString();atomicWrite(stateFile,next);state=next;broadcast('state',state);scheduleEntranceReturn();}});
-  const halftimeSnapshot=(mode)=>({customLayout:!!state.highlightLayouts,mode:mode==='full'?'full':mode==='half'?'half':automation.meta().mode,layouts:highlights.normalize(state.highlightLayouts,half.normalize(state.halftime)),auto:automation.meta(),config:half.normalize(state.halftime),resolved:highlights.resolve(state,half.normalize(state.halftime)),serverTime:Date.now(),serverEpoch,controlEpoch,radar:radar.meta(),replay:{phase:integrations.all().replay.phase},matches:state.matches.map(m=>({id:m.id,round:m.round,stage:m.stage,teamAId:m.teamAId,teamBId:m.teamBId})),teams:state.teams.map(t=>({id:t.id,name:t.name})),selectedMatchId:state.selectedMatchId});
+  const obsHighlights=require('./highlight-obs.cjs').createController({dir:resolvedDataDir,getItems:mode=>replayItems(mode),getPlayback:()=>({customLayout:!!state.highlightLayouts,layouts:highlights.normalize(state.highlightLayouts,half.normalize(state.halftime)),config:half.normalize(state.halftime)}),hasReplay:mode=>state.highlightLayouts||mode==='full'?highlights.normalize(state.highlightLayouts,half.normalize(state.halftime))[mode].elements.some(e=>e.type==='replay'):[state.halftime.left,state.halftime.right].some(e=>e?.type==='replay')});
+  const automation=require('./halftime-auto.cjs').createAutomation({file:path.join(resolvedDataDir,'halftime-auto-state.json'),getState:()=>state,onGSI:consumeGSI,onShow:(id,mode)=>obsHighlights.begin(id,mode),onHide:(id,reason)=>obsHighlights.end(id,reason),onTick:id=>obsHighlights.tick(id),readGSI:async()=>{if(!radar.meta().running)return {connected:false};const r=await fetch(radar.meta().controlUrl+'api/phase',{signal:AbortSignal.timeout(2000)});if(!r.ok)throw Error('GSI 服务未连接');return r.json();},commit:next=>{next.revision=Number(state.revision||0)+1;next.lastSavedAt=new Date().toISOString();atomicWrite(stateFile,next);state=next;broadcast('state',state);scheduleEntranceReturn();}});
+  const halftimeSnapshot=(mode)=>({customLayout:!!state.highlightLayouts,mode:mode==='full'?'full':mode==='half'?'half':automation.meta().mode,layouts:highlights.normalize(state.highlightLayouts,half.normalize(state.halftime)),auto:automation.meta(),obs:obsHighlights.meta(),config:half.normalize(state.halftime),resolved:highlights.resolve(state,half.normalize(state.halftime)),serverTime:Date.now(),serverEpoch,controlEpoch,radar:radar.meta(),replay:{phase:integrations.all().replay.phase},matches:state.matches.map(m=>({id:m.id,round:m.round,stage:m.stage,teamAId:m.teamAId,teamBId:m.teamBId})),teams:state.teams.map(t=>({id:t.id,name:t.name})),selectedMatchId:state.selectedMatchId});
   let replayCache=null,replayCacheAt=0,replayCacheMode="";
   const replayItems=async(mode=automation.meta().mode)=>{
     const module=integrations.all().replay;if(module.phase!=='running')throw Error('请先启动 Replay 并选择半场精选');
@@ -260,7 +261,7 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
   async function pauseModules(){
     const running=Object.entries(integrations.all()).filter(([,m])=>m.phase==='running').map(([id])=>id);
     if(Object.values(integrations.all()).some(m=>m.busy||['starting','stopping','restarting'].includes(m.phase)))throw Error('模块正在启动或停止，请稍后再试');
-    const radarRunning=radar.meta().running;automation.close();clearTimeout(entranceReturnTimer);
+    const radarRunning=radar.meta().running;await automation.hide('modules-paused');automation.close();clearTimeout(entranceReturnTimer);
     try{for(const id of running)await integrations.action(id,'stop');await radar.close();}
     catch(error){for(const id of running)await integrations.action(id,'start').catch(()=>{});if(radarRunning)await radar.start();automation.start();scheduleEntranceReturn();throw error;}
     return async()=>{if(radarRunning)await radar.start();for(const id of running)await integrations.action(id,'start').catch(()=>{});automation.start();scheduleEntranceReturn();};
@@ -348,6 +349,13 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
       snapshot(reason);atomicWrite(stateFile,next);state=next;broadcast('state',state);scheduleEntranceReturn();return state;
     };
     if(url.pathname==='/api/highlights'&&request.method==='GET')return json(response,200,halftimeSnapshot(url.searchParams.get('mode')));
+    if(url.pathname==='/api/highlights/obs'&&request.method==='GET')return json(response,200,obsHighlights.meta());
+    if(url.pathname==='/api/highlights/obs'&&request.method==='POST'){
+      try{const body=await collectBody(request,4096);assertWriter();return json(response,200,body.action==='test'?await obsHighlights.test():body.action==='settings'?await obsHighlights.configure(body.settings||{}):(()=>{throw Error('未知 OBS 操作');})());}catch(e){return json(response,400,{error:e.message});}
+    }
+    if(url.pathname==='/api/highlights/playback'&&request.method==='POST'){
+      try{const body=await collectBody(request,1024);assertWriter();if(!['ready','heartbeat','ended','error'].includes(body.action))throw Error('未知播放通知');const result=await obsHighlights.signal(body);if(result.finish)await automation.hide(result.finish,body.id);return json(response,200,result);}catch(e){return json(response,400,{error:e.message});}
+    }
     if(url.pathname==='/api/highlights'&&request.method==='POST'){
       try{const body=await collectBody(request,150000);assertWriter();const prev=highlights.normalize(state.highlightLayouts,half.normalize(state.halftime));if(body.expectedRevision!==prev.revision)return json(response,409,{error:'画面已被其他操作修改，请重新载入'});const next=highlights.normalize({...body.layouts,revision:prev.revision+1});validateMedia(next);persist({...state,highlightLayouts:next});return json(response,200,halftimeSnapshot(body.mode));}catch(e){return json(response,400,{error:e.message});}
     }
@@ -357,12 +365,13 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
     }
     if(url.pathname==='/api/halftime'&&request.method==='GET')return json(response,200,halftimeSnapshot(url.searchParams.get('mode')));
     if(url.pathname==='/api/halftime/replay'&&request.method==='GET'){
-      try{return json(response,200,{items:await replayItems(url.searchParams.get('mode')||undefined),serverTime:Date.now()});}catch(e){return json(response,200,{items:[],error:e.message,serverTime:Date.now()});}
+      try{const run=obsHighlights.meta().run;return json(response,200,{items:run&&run.mode===(url.searchParams.get('mode')||automation.meta().mode)?run.items:await replayItems(url.searchParams.get('mode')||undefined),serverTime:Date.now()});}catch(e){return json(response,200,{items:[],error:e.message,serverTime:Date.now()});}
     }
     if(url.pathname.startsWith('/api/halftime/replay/media/')&&['GET','HEAD'].includes(request.method)){
       const id=url.pathname.split('/').at(-1);
       if(!/^[a-zA-Z0-9_-]+$/.test(id))return json(response,400,{error:'无效素材'});
-      if(!(await replayItems(url.searchParams.get('mode')||undefined)).some(a=>a.id===id))return json(response,404,{error:'素材已离开半场精选'});
+      const run=obsHighlights.meta().run,mode=url.searchParams.get('mode')||automation.meta().mode;
+      if(!(run&&run.mode===mode?run.items:await replayItems(mode)).some(a=>a.id===id))return json(response,404,{error:'素材已离开半场精选'});
       const upstream=http.request(integrations.all().replay.controlUrl+'api/media/'+id,{method:request.method,headers:request.headers.range?{Range:request.headers.range}:{}},r=>{
         const headers={};for(const k of ['content-type','content-length','content-range','accept-ranges','etag'])if(r.headers[k])headers[k]=r.headers[k];
         response.writeHead(r.statusCode,headers);r.pipe(response);
@@ -379,10 +388,11 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
       }catch(e){return json(response,400,{error:e.message});}
     }
     if(url.pathname==='/api/halftime/program'&&request.method==='POST'){
-      try{const body=await collectBody(request,1024);assertWriter();if(body.expectedRevision!==half.normalize(state.halftime).revision)return json(response,409,{error:'中场状态已变化，请重试'});if(body.action==='show')automation.show(null,body.mode==='full'?'full':'half');else if(body.action==='hide')automation.hide();else throw Error('未知播出操作');return json(response,200,halftimeSnapshot());}catch(e){return json(response,400,{error:e.message});}
+      try{const body=await collectBody(request,1024);assertWriter();if(body.expectedRevision!==half.normalize(state.halftime).revision)return json(response,409,{error:'中场状态已变化，请重试'});if(body.action==='show')await automation.show(null,body.mode==='full'?'full':'half');else if(body.action==='hide')await automation.hide();else throw Error('未知播出操作');return json(response,200,halftimeSnapshot());}catch(e){return json(response,400,{error:e.message});}
     }
     if(url.pathname==='/api/halftime'&&request.method==='POST'){
       try{const body=await collectBody(request,24000);assertWriter();const before=half.normalize(state.halftime);
+        if(obsHighlights.ownsScene()&&!['settings','capture-score'].includes(body.action))throw Error('OBS 精选正在按固定片单播出；请先结束精选，再重播或调整播放时钟');
         if(body.expectedRevision!==before.revision)return json(response,409,{error:'中场设置已变化，请重新载入后保存'});
         let next;
         if(body.action==='settings'){next=half.normalize({...body.settings,clock:before.clock,media:before.media,frozen:before.frozen,revision:before.revision+1});if(before.clock.status==='idle')next.clock.remainingMs=next.durationSeconds*1000;}
@@ -636,8 +646,10 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
       automation.start();
       return meta();
     },
-    close() {
+    async close() {
       automation.close();
+      if(obsHighlights.ownsScene())await automation.hide('shutdown').catch(()=>{});
+      await obsHighlights.end(null,'shutdown').catch(()=>{});
       clearInterval(heartbeat);
       if (entranceReturnTimer) clearTimeout(entranceReturnTimer);
       for (const client of clients) client.end();
