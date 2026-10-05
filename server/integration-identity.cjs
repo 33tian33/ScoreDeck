@@ -19,11 +19,16 @@ async function imageData(value,dataDir){
  if(!['png','jpeg','webp'].includes(type))throw Error('队标须为 PNG、JPEG 或 WebP');return `data:image/${type};base64,${bytes.toString('base64')}`;
 }
 function createIdentitySync({getState,dataDir,prefs,records,url}){
- let closed=false;const status={},cache=new Map();
+ let closed=false;const status={},cache=new Map(),flights={};
  for(const id of ['replay','voicebridge'])status[id]={busy:false,error:'',signature:'',syncedAt:0};
  function meta(id){return {...resolveMain(getState(),prefs[id].swapTeams),followMain:prefs[id].followMain!==false,swapTeams:!!prefs[id].swapTeams,syncError:status[id].error,syncedAt:status[id].syncedAt};}
  async function request(id,endpoint,payload){const r=await fetch(url(id)+endpoint,{method:payload?'POST':'GET',headers:{'Content-Type':'application/json','X-ScoreDeck-Instance':records[id].instance||''},...(payload?{body:JSON.stringify(payload)}:{}),signal:AbortSignal.timeout(8000)});const body=await r.json();if(!r.ok)throw Error(body.error||`HTTP ${r.status}`);return body;}
  async function sync(id,force=false){
+  while(flights[id]){if(!force)return;await flights[id];}
+  const flight=runSync(id,force);flights[id]=flight;
+  try{await flight;}finally{if(flights[id]===flight)delete flights[id];}
+ }
+ async function runSync(id,force=false){
   const r=records[id],st=status[id];if(closed||st.busy||r.phase!=='running')return;
   st.busy=true;
   try{

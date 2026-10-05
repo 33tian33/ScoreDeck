@@ -2,10 +2,11 @@ const { app, BrowserWindow, shell, dialog, screen } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const { createBroadcastServer } = require("../server/broadcast-server.cjs");
+const { keepDirectorOnTop } = require('./director-topmost.cjs');
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) { app.quit(); process.exit(0); }
-let mainWindow, directorWindow, settingsWindow, localOrigin, directorScreen=0, directorLayoutFile;
+let mainWindow, directorWindow, directorTopmost, settingsWindow, localOrigin, directorScreen=0, directorLayoutFile;
 function placeDirector(saved){
  if(!directorWindow)return;const displays=screen.getAllDisplays(),area=screen.getDisplayMatching(saved||directorWindow.getBounds()).workArea;
  const target=saved||{...directorWindow.getBounds(),x:area.x+8};
@@ -23,13 +24,13 @@ function directorAction(action){
   settingsWindow=new BrowserWindow({width:780,height:760,minWidth:640,backgroundColor:'#212121',title:'导播控制栏设置',webPreferences:{contextIsolation:true,sandbox:true}});settingsWindow.setMenuBarVisibility(false);settingsWindow.loadURL(localOrigin+'/director-settings.html');settingsWindow.on('closed',()=>settingsWindow=null);return;
  }
  if(action==='screen'){if(directorWindow){const displays=screen.getAllDisplays(),current=screen.getDisplayMatching(directorWindow.getBounds()),index=displays.findIndex(d=>d.id===current.id),area=displays[(index+1)%displays.length].workArea,b=directorWindow.getBounds();placeDirector({...b,x:area.x+8,y:area.y+area.height-b.height-8});}return;}
- if(directorWindow){directorWindow.showInactive();return;}
+ if(directorWindow){if(directorWindow.isMinimized())directorWindow.restore();directorWindow.showInactive();directorTopmost.raise();return;}
  const displays=screen.getAllDisplays(),nearest=screen.getDisplayNearestPoint(screen.getCursorScreenPoint());directorScreen=Math.max(0,displays.findIndex(d=>d.id===nearest.id));
  directorWindow=new BrowserWindow({width:1200,height:220,minWidth:800,minHeight:200,frame:true,thickFrame:true,movable:true,title:'ScoreDeck 导播控制栏',autoHideMenuBar:true,focusable:true,alwaysOnTop:true,skipTaskbar:false,resizable:true,maximizable:false,fullscreenable:false,show:false,backgroundColor:'#171717',webPreferences:{contextIsolation:true,sandbox:true,backgroundThrottling:false,autoplayPolicy:'no-user-gesture-required'}});
- directorWindow.setMenuBarVisibility(false);directorWindow.setFocusable(true);directorWindow.setIgnoreMouseEvents(false);directorWindow.setMovable(true);directorWindow.setResizable(true);directorWindow.setMinimumSize(800,200);directorWindow.setAlwaysOnTop(true);
+ directorWindow.setMenuBarVisibility(false);directorWindow.setFocusable(true);directorWindow.setIgnoreMouseEvents(false);directorWindow.setMovable(true);directorWindow.setResizable(true);directorWindow.setMinimumSize(800,200);directorTopmost=keepDirectorOnTop(directorWindow);
  const area=nearest.workArea;let saved={width:area.width-16,height:220,x:area.x+8,y:area.y+area.height-228};
  try{const input=JSON.parse(fs.readFileSync(directorLayoutFile,'utf8'));if(['x','y','width','height'].every(k=>Number.isFinite(input[k])))saved={...input,height:input.layoutRevision===3?input.height:220};}catch{}
- placeDirector(saved);directorWindow.on('resize',saveDirectorBounds);directorWindow.on('move',saveDirectorBounds);directorWindow.on('close',saveDirectorBounds);directorWindow.loadURL(localOrigin+'/director-bar.html');directorWindow.once('ready-to-show',()=>directorWindow?.showInactive());directorWindow.webContents.setWindowOpenHandler(()=>({action:'deny'}));directorWindow.on('closed',()=>directorWindow=null);
+ placeDirector(saved);directorWindow.on('resize',saveDirectorBounds);directorWindow.on('move',saveDirectorBounds);directorWindow.on('close',saveDirectorBounds);directorWindow.loadURL(localOrigin+'/director-bar.html');directorWindow.once('ready-to-show',()=>directorWindow?.showInactive());directorWindow.webContents.setWindowOpenHandler(()=>({action:'deny'}));directorWindow.on('closed',()=>{directorWindow=null;directorTopmost=null;});
 }
 
 app.on("second-instance", () => { if (mainWindow) { if(mainWindow.isMinimized())mainWindow.restore(); mainWindow.show(); mainWindow.focus(); } });

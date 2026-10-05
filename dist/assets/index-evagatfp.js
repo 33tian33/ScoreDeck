@@ -16043,7 +16043,7 @@ function Wt({ state: e, setState: t, meta: n, connection: r }) {
                 children: [
                   (0, O.jsx)(`strong`, { children: `ScoreDeck` }),
                   (0, O.jsx)(`span`, {
-                    children: `导播工作台 · 2.18.7`,
+                    children: `导播工作台 · 2.18.9`,
                   }),
                 ],
               }),
@@ -19143,9 +19143,10 @@ function sdFlowEditor({state}){
  h('div',{className:'sf-workspace'},
  h('aside',{className:'panel sf-rail'},h('small',null,'开始'),...stages.map((st,index)=>h('button',{key:st.id,className:'sf-stage '+(stage?.id===st.id?'active':''),onClick:()=>{setSelected(st.id);}},h('b',null,String(index+1).padStart(2,'0')),h('span',null,st.name,h('small',null,`${st.slots.length}个位置 · ${F.matchesOf(state,st.id).filter(m=>!m.autoBye).length}场`)))),h('small',null,'结束')),
  h('section',{className:'panel sf-details'},h('div',{className:'sf-actions'},h(sdFlowInput,{label:'赛段名称',value:stage.name,onChange:name=>updateStage({name})}),h(sdFlowButton,{disabled:stages.indexOf(stage)===0,onClick:()=>act(s=>{const i=s.stages.findIndex(x=>x.id===stage.id);[s.stages[i-1],s.stages[i]]=[s.stages[i],s.stages[i-1]];})},'上移'),h(sdFlowButton,{disabled:stages.indexOf(stage)===stages.length-1,onClick:()=>act(s=>{const i=s.stages.findIndex(x=>x.id===stage.id);[s.stages[i+1],s.stages[i]]=[s.stages[i],s.stages[i+1]];})},'下移'),h(sdFlowButton,{onClick:()=>{if(confirm('删除该赛段及其中比赛？关联去向将变为待连接。'))act(s=>F.removeStage(s,stage.id));}},'删除赛段')),
- h('div',{className:'sf-tabs'},...[['teams','参赛队伍'],['format','赛制配置'],['modules','对阵模块'],['routes','晋级去向']].map(([id,title])=>h('button',{key:id,className:tab===id?'active':'',onClick:()=>setTab(id)},title))),
+ h('div',{className:'sf-tabs'},...[['teams','参赛队伍'],['format','赛制配置'],['modules','对阵模块'],...(stage.type==='group'?[['comparators','跨组比较器']]:[]),['routes','晋级去向']].map(([id,title])=>h('button',{key:id,className:tab===id?'active':'',onClick:()=>setTab(id)},title))),
  tab==='teams'&&h('div',{className:'sf-slot-grid'},...stage.slots.map(sl=>{const from=incoming.slots.get(`${stage.id}/${sl.id}`);return h('div',{key:sl.id,className:'sf-slot'},h(sdFlowSelect,{label:sl.label,value:sl.teamId,disabled:!!from,options:[['','等待晋级 / 待选'],...state.teams.map(t=>[t.id,t.name])],onChange:value=>act(s=>F.stageOf(s,stage.id).slots.find(x=>x.id===sl.id).teamId=value)}),from&&h('small',null,'← ',F.label(state,stage,from)),sl.resolvedTeamId&&h('strong',null,state.teams.find(t=>t.id===sl.resolvedTeamId)?.name),link&&h(sdFlowButton,{onClick:()=>targetPort({kind:'slot',stageId:stage.id,slotId:sl.id})},'连到此位置'));})),
  tab==='modules'&&h(sdFlowModules,{state,stage,act}),
+ tab==='comparators'&&stage.type==='group'&&h(sdFlowComparators,{state,stage,act}),
  tab==='format'&&h(sdFlowConfig,{key:stage.id,stage,state,act}),
  tab==='routes'&&h('div',null,h('p',{className:'hint'},'循环赛按最终名次；淘汰赛按每场胜败。每个来源只能有一个去向，每个位置只能有一个来源。'),...F.outputs(state,stage).map(out=>h(sdFlowRoute,{key:out.key,state,stage,out,act,selected:link?.stageId===stage.id&&link?.key===out.key,onSelect:()=>outputPort(stage.id,out.key)})))
  )),
@@ -19172,8 +19173,22 @@ function sdFlowModules({state,stage,act}){
  !aggregate&&h('div',{className:'sf-actions'},...['A','B'].map(side=>h(sdFlowSelect,{key:side,label:`${F.shortId(m)} ${side}来源`,disabled:idx.ins.has(`${m.id}/${side}`),value:JSON.stringify(m[`entry${side}`]||null),options:[[JSON.stringify(null),idx.ins.has(`${m.id}/${side}`)?F.label(state,stage,idx.ins.get(`${m.id}/${side}`)):'等待连线'],...stage.slots.map(sl=>[JSON.stringify({kind:'slot',slotId:sl.id}),sl.label]),...state.teams.map(t=>[JSON.stringify({kind:'team',teamId:t.id}),t.name]),[JSON.stringify({kind:'bye'}),'明确轮空']],onChange:value=>act(s=>s.matches.find(x=>x.id===m.id)[`entry${side}`]=JSON.parse(value))}))),
  aggregate?h('small',null,'轮内对阵按赛制推进；通过最终排名出口设置终结去向。'):h('div',{className:'sf-module-exits'},...F.outputs(state,stage).filter(o=>o.matchId===m.id).map(out=>h(sdFlowRoute,{key:out.key,state,stage,out,act,onSelect:()=>{}}))));}));
 }
+function sdFlowComparators({state,stage,act}){
+ const h=l.createElement,F=ScoreDeckFlow,sources=F.comparatorSources(state,stage),diff=n=>n>0?`+${n}`:String(n);
+ return h('div',{className:'sf-comparators'},h('div',{className:'sf-heading'},h('div',null,h('h3',null,'跨组队伍比较器'),h('p',{className:'hint'},'选择各小组的最终名次，携带原组内积分、净胜图和净胜回合进行比较。每个小组名次只可进入一个去向。')),h(sdFlowButton,{primary:true,onClick:()=>act(s=>F.addComparator(s,stage.id))},'+ 添加比较器')),
+ !(stage.comparators||[]).length&&h('p',{className:'sf-empty'},'例如：将 A、B、C 组第 3 名放入比较器，比较前 2 名设为 Qualified，其余设为淘汰。'),
+ ...(stage.comparators||[]).map(c=>{
+  const inputs=F.comparatorInputs(stage,c),table=F.comparatorTable(state,stage,c);
+  return h('section',{className:'sf-comparator',key:c.id},h('div',{className:'sf-actions'},h(sdFlowInput,{label:'比较器名称',value:c.name,onChange:name=>act(s=>F.stageOf(s,stage.id).comparators.find(x=>x.id===c.id).name=name)}),h(sdFlowInput,{label:`${c.name}进入队伍数`,type:'number',min:2,max:stage.slots.length,value:c.teamCount,onChange:value=>act(s=>F.resizeComparator(s,stage.id,c.id,Number(value)))}),h(sdFlowButton,{onClick:()=>{if(confirm('删除比较器？原小组名次将变为待连接。'))act(s=>F.removeComparator(s,stage.id,c.id));}},'删除比较器')),
+  h('div',{className:'sf-slot-grid'},...inputs.map((key,i)=>h(sdFlowSelect,{key:i,label:`${c.name}入场${i+1}`,value:key,options:[['','选择小组名次'],...sources.filter(src=>src.key===key||!stage.routes[src.key]||['pending','end','eliminate'].includes(stage.routes[src.key].kind)).map(src=>[src.key,src.label])],onChange:source=>act(s=>F.setComparatorInput(s,stage.id,c.id,i+1,source))}))),
+  h('p',{className:'hint'},'排序：积分 → 净胜回合 → 净胜图（均从高到低）；全部相同按队名、队伍 ID 排序。统计包含该队全部组内比赛。'),
+  h('p',{className:table.complete?'sf-comparison-ready':'sf-warning',role:'status'},table.complete?'相关小组全部完赛，以下为最终排名。':'暂定排名：所有入场来源选齐且相关小组全部完赛后，才会产生终结状态或晋级队伍。'),
+  h('div',{className:'sf-comparison-scroll'},h('table',{className:'sf-comparison-table'},h('thead',null,h('tr',null,...['排名','来源','队伍','积分','净胜图','净胜回合','排名去向'].map(title=>h('th',{key:title,scope:'col'},title)))),h('tbody',null,...Array.from({length:c.teamCount},(_,i)=>{const row=table.rows[i],out=F.outputs(state,stage).find(o=>o.key===F.comparatorRank(c.id,i+1));return h('tr',{key:i},h('td',null,i+1),h('td',null,row?`${row.groupName}第${row.groupRank}名`:'—'),h('td',null,row?.team.name||'等待队伍'),h('td',null,row?.points??'—'),h('td',null,row?diff(row.mapDiff):'—'),h('td',null,row?diff(row.roundDiff):'—'),h('td',null,h(sdFlowRoute,{state,stage,out,act})));})))));
+ }));
+}
 function sdFlowRoute({state,stage,out,act,selected,onSelect}){
  const h=l.createElement,F=ScoreDeckFlow,to=stage.routes[out.key]||F.pending(),value=JSON.stringify(to),m=state.matches.find(m=>m.id===out.matchId),fixed=!!F.roleTerminals(m?.role),options=[[JSON.stringify(F.pending()),'待连接'],...F.TERMINALS.map(label=>[JSON.stringify(F.terminal(label)),`终结 · ${label}`])];
+ if(F.comparatorSources(state,stage).some(src=>src.key===out.key))for(const c of stage.comparators||[])for(let position=1;position<=c.teamCount;position++)options.push([JSON.stringify({kind:'comparator',comparatorId:c.id,position}),`比较器 · ${c.name} / 入场${position}`]);
  for(const st of state.stages.slice(state.stages.indexOf(stage)+1))for(const sl of st.slots){const dst={kind:'slot',stageId:st.id,slotId:sl.id};options.push([JSON.stringify(dst),'晋级 → '+F.targetLabel(state,dst)]);}
  for(const st of state.stages.slice(state.stages.indexOf(stage)))for(const dst of F.matchesOf(state,st.id))if(!F.isRoundRobin(st,dst)&&(st.type!=='swiss'||dst.custom)&&dst.id!==out.matchId)for(const side of ['A','B'])options.push([JSON.stringify({kind:'match',matchId:dst.id,side}),`${st===stage?'对阵':'晋级'} → ${st.name} / ${dst.round} ${F.shortId(dst)} · ${side}位`]);
  if(!options.some(x=>x[0]===value))options.unshift([value,F.targetLabel(state,to)]);
@@ -19185,7 +19200,7 @@ function sdFlowGraph({state,stageId='',onSource,onTarget,link,output=false}){
  for(const st of stages){
   const startY=offset,allMs=F.matchesOf(state,st.id).filter(m=>!m.inactive),deps=F.dependencies(state),depths=new Map();let ms=allMs;
   if(output&&st.type==='playoff'&&st.format==='single'&&st.teamCount>16){const half=(state.flowOutputPage||0)%2;ms=allMs.filter(m=>{const r=/^R(\d+)-(\d+)$/.exec(F.shortId(m));if(!r)return true;let size=2;while(size<st.teamCount)size*=2;const count=size/(2**Number(r[1]));return count===1||Math.floor(Number(r[2])/(count/2))===half;});}
-  const depth=m=>{if(depths.has(m.id))return depths.get(m.id);depths.set(m.id,0);const ds=(deps.get(m.id)||[]).map(k=>ms.find(m=>m.id===k)).filter(Boolean);const n=ds.length?1+Math.max(...ds.map(depth)):0;depths.set(m.id,n);return n;};
+  const depth=m=>{if(depths.has(m.id))return depths.get(m.id);depths.set(m.id,0);const ds=(deps.get(m.id)||[]).map(k=>ms.find(m=>m.id===k)).filter(Boolean),comparison=['A','B'].some(side=>idx.ins.get(`${m.id}/${side}`)?.kind==='comparison');const n=ds.length?(comparison?2:1)+Math.max(...ds.map(depth)):0;depths.set(m.id,n);return n;};
   const groupNodes=st.type==='group'?st.groups.filter(g=>g.format!=='gsl'):[];
   // Compact entry column, matches in topological columns.
   let maxBottom=startY+65;
@@ -19195,9 +19210,11 @@ function sdFlowGraph({state,stageId='',onSource,onTarget,link,output=false}){
   for(const m of ms.filter(m=>!F.isRoundRobin(st,m))){const d=st.type==='swiss'&&!m.custom?m.swissRound-1:depth(m),row=rows.get(d)||0,n=add(`match/${m.id}`,(output?20:244)+d*280,startY+45+row,242,output?80:118,{type:'match',st,m});rows.set(d,row+(output?95:142));maxBottom=Math.max(maxBottom,n.y+n.height);width=Math.max(width,n.x+n.w+50);}
   if(st.type==='playoff'&&st.format==='single'){for(const m of ms){const n=positions.get(`match/${m.id}`),parents=(deps.get(m.id)||[]).map(k=>positions.get(`match/${k}`)).filter(Boolean);if(n&&parents.length&&!m.custom)n.y=parents.reduce((sum,p)=>sum+p.y+p.height/2,0)/parents.length-n.height/2;}}
   const columns=new Map();for(const n of nodes.filter(n=>n.st===st&&n.type==='match')){if(!columns.has(n.x))columns.set(n.x,[]);columns.get(n.x).push(n);}for(const column of columns.values()){let bottom=0;for(const n of column.sort((a,b)=>a.y-b.y)){n.y=Math.max(n.y,bottom);bottom=n.y+n.height+24;maxBottom=Math.max(maxBottom,n.y+n.height);}}
+  const comparatorX=Math.max(output?20:244,...nodes.filter(n=>n.st===st&&(n.type==='group'||n.type==='match'&&!n.m.custom)).map(n=>n.x))+280;let comparatorY=startY+45;
+  for(const c of st.comparators||[]){const n=add(`comparator/${st.id}/${c.id}`,comparatorX,comparatorY,262,65+c.teamCount*30,{type:'comparator',st,c});comparatorY+=n.height+25;maxBottom=Math.max(maxBottom,n.y+n.height);width=Math.max(width,n.x+n.w+50);}
   bands.push({st,y:startY,height:maxBottom-startY+35});offset=maxBottom+90;
  }
- const origin=(st,key)=>{if(key.startsWith('rank:')){const[,gid,n]=key.split(':');if(gid==='swiss')return {key:`swiss/${st.id}`,port:0};return {key:`group/${st.id}/${gid}`,port:72+(Number(n)-1)*30};}return {key:`match/${key.slice(key.indexOf(':')+1)}`,port:output?(key.startsWith('win:')?43:66):(key.startsWith('win:')?86:106)};};
+ const origin=(st,key)=>{if(key.startsWith('compare:')){const[,cid,n]=key.split(':');return {key:`comparator/${st.id}/${cid}`,port:65+(Number(n)-1)*30};}if(key.startsWith('rank:')){const[,gid,n]=key.split(':');if(gid==='swiss')return {key:`swiss/${st.id}`,port:0};return {key:`group/${st.id}/${gid}`,port:72+(Number(n)-1)*30};}return {key:`match/${key.slice(key.indexOf(':')+1)}`,port:output?(key.startsWith('win:')?43:66):(key.startsWith('win:')?86:106)};};
  for(const st of stages){
   if(st.type==='swiss'){
    const band=bands.find(b=>b.st===st),x=(output?20:244)+5*280,n=add(`swiss/${st.id}`,x,band.y+45,230,60+16*27,{type:'swiss',st});width=Math.max(width,x+280);
@@ -19206,6 +19223,7 @@ function sdFlowGraph({state,stageId='',onSource,onTarget,link,output=false}){
   for(const[key,to]of Object.entries(st.routes)){
    const from=origin(st,key);if(to.kind==='match')edges.push({from:from.key,port:from.port,to:`match/${to.matchId}`,toPort:to.side==='A'?43:66,loser:key.startsWith('lose:')});
    if(to.kind==='slot')edges.push({from:from.key,port:from.port,to:`slot/${to.stageId}/${to.slotId}`,loser:key.startsWith('lose:')});
+   if(to.kind==='comparator')edges.push({from:from.key,port:from.port,to:`comparator/${st.id}/${to.comparatorId}`,toPort:65+(to.position-1)*30});
   }
  }
  const name=id=>state.teams.find(t=>t.id===id)?.shortName||state.teams.find(t=>t.id===id)?.name||'';
@@ -19215,6 +19233,7 @@ function sdFlowGraph({state,stageId='',onSource,onTarget,link,output=false}){
  ...edges.map((e,i)=>{const a=positions.get(e.from),b=positions.get(e.to);if(!a||!b)return null;const x=a.x+a.w,y=a.y+(e.port||a.height/2),tx=b.x,ty=b.y+(e.toPort||b.height/2),mid=Math.max(x+20,(x+tx)/2);return h('path',{key:i,d:`M${x},${y} C${mid},${y} ${tx-25},${ty} ${tx},${ty}`,fill:'none',stroke:e.loser?'#b69b69':'#9aa9bc',strokeWidth:1.4,strokeDasharray:e.loser?'4 4':undefined,markerEnd:`url(#${output?'sf-arrow-output':'sf-arrow'})`});}),
  ...nodes.map(n=>h('g',{key:n.key,'data-node':n.key,transform:`translate(${n.x} ${n.y})`},h('rect',{width:n.w,height:n.height,rx:7,className:'sf-node'}),n.type==='slot'?h(l.Fragment,null,h('text',{x:12,y:16,className:'sf-small'},n.sl.label),h('text',{x:12,y:33},name(n.sl.resolvedTeamId||n.sl.teamId)||'等待入场'),link&&port(n.w-18,21,'',()=>onTarget?.({kind:'slot',stageId:n.st.id,slotId:n.sl.id}),'target')):
  n.type==='match'?h(l.Fragment,null,h('text',{x:10,y:19,className:'sf-small'},`${n.m.round} · ${F.shortId(n.m)} · BO${n.m.bestOf}`),...['A','B'].map((side,i)=>{const src=idx.ins.get(`${n.m.id}/${side}`)||n.m[`entry${side}`],text=name(n.m[`team${side}Id`])||(n.m.swissRound>1?'同战绩自动配对':F.label(state,n.st,src));return h('g',{key:side,onClick:link?()=>onTarget?.({kind:'match',matchId:n.m.id,side}):undefined,className:link?'sf-target':''},h('rect',{x:6,y:29+i*24,width:230,height:23,fill:'transparent'}),h('text',{x:10,y:46+i*24},`${side}  ${text.length>(output?16:21)?text.slice(0,output?15:20)+'…':text}`),h('text',{x:215,y:46+i*24,textAnchor:'end'},n.m.autoBye?'—':n.m[`score${side}`]));}),!output&&port(12,88,'胜',onSource&&!F.roleTerminals(n.m.role)&&(n.st.type!=='swiss'||n.m.custom)?()=>onSource(n.st.id,F.win(n.m)):null,'winner'),!output&&h('text',{x:65,y:92,className:'sf-small'},F.targetLabel(state,n.st.routes[F.win(n.m)]||{kind:'pending'}).slice(0,22)),!output&&port(12,107,'负',onSource&&!F.roleTerminals(n.m.role)&&(n.st.type!=='swiss'||n.m.custom)?()=>onSource(n.st.id,F.lose(n.m)):null,'loser'),!output&&h('text',{x:65,y:111,className:'sf-small'},F.targetLabel(state,n.st.routes[F.lose(n.m)]||{kind:'pending'}).slice(0,22))):
+ n.type==='comparator'?h(l.Fragment,null,h('text',{x:12,y:23,className:'sf-graph-title'},n.c.name),h('text',{x:12,y:43,className:'sf-small'},`${n.c.teamCount}队 · 积分 / 净胜回合 / 净胜图`),...Array.from({length:n.c.teamCount},(_,i)=>port(14,65+i*30,`第${i+1}名 → ${F.targetLabel(state,n.st.routes[F.comparatorRank(n.c.id,i+1)]||F.pending()).slice(0,20)}`,onSource?()=>onSource(n.st.id,F.comparatorRank(n.c.id,i+1)):null,String(i)))):
  n.type==='group'?h(l.Fragment,null,h('text',{x:12,y:23,className:'sf-graph-title'},`${n.g.name} · ${n.g.format==='double-round'?'双循环':'单循环'}`),h('text',{x:12,y:45,className:'sf-small'},`${n.g.size}队 · BO${n.g.bestOf}`),...Array.from({length:n.g.size},(_,i)=>port(14,70+i*30,`第${i+1}名  ${F.targetLabel(state,n.st.routes[F.rank(n.g.id,i+1)]||F.pending()).slice(0,22)}`,onSource?()=>onSource(n.st.id,F.rank(n.g.id,i+1)):null,String(i)))):
  h(l.Fragment,null,h('text',{x:12,y:24,className:'sf-graph-title'},'瑞士轮最终排名'),...Array.from({length:16},(_,i)=>port(12,50+i*27,`第${i+1}名 → ${F.targetLabel(state,n.st.routes[F.rank('swiss',i+1)]).slice(0,18)}`,onSource?()=>onSource(n.st.id,F.rank('swiss',i+1)):null,String(i)))))));
  return h('div',{className:output?'sf-graph-output':'sf-graph-scroll'},svg);

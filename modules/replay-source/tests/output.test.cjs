@@ -3,9 +3,10 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const script=fs.readFileSync('internal/replay/web/output.js','utf8');
-async function fixture(block=false,clipsOnly=false){
+async function fixture(block=false,clipsOnly=false,rate=undefined,kind=undefined){
  let server={id:'session',index:0,due:0,items:[{id:'intro',kind:'transition'},{id:'clip1',kind:'replay'},{id:'clip2',kind:'replay'},{id:'outro',kind:'transition'}]};
  if(clipsOnly)server.items=server.items.filter(item=>item.kind==='replay');
+ server.rate=rate;server.kind=kind;
  const label={hidden:true,className:'',addEventListener(name,fn){this[name]=fn}},acks=[];
  function video(){return {style:{display:'none'},paused:true,src:'',duration:2,currentTime:0,loads:0,load(){this.loads++},pause(){this.paused=true},removeAttribute(){this.src=''},play(){if(block)return Promise.reject(Object.assign(Error('blocked'),{name:'NotAllowedError'}));this.paused=false;queueMicrotask(()=>this.onplaying?.());return Promise.resolve()}}}
  const videos=[video(),video()];let time=10000,offline=false,watchdog;
@@ -19,6 +20,14 @@ test('transition → two replay clips → transition → transparent, with prelo
  await f.next();assert.equal(f.label.hidden,false);
  await f.next();assert.equal(f.label.hidden,true);
  await f.next();assert.ok(f.videos.every(v=>v.paused&&v.style.display==='none'));assert.deepEqual(f.acks.map(a=>a.index),[0,1,2,3]);
+});
+test('director speed affects replay clips only, while transitions and normal sessions stay at 1x',async()=>{
+ for(const rate of [.25,.5,1]){
+  const f=await fixture(false,false,rate,'clip'),current=()=>f.videos.find(v=>!v.paused);
+  assert.equal(current().playbackRate,1);await f.next();assert.equal(current().playbackRate,rate);
+  await f.next();assert.equal(current().playbackRate,rate);await f.next();assert.equal(current().playbackRate,1);
+ }
+ const normal=await fixture(false,true,.25,'round');assert.equal(normal.videos.find(v=>!v.paused).playbackRate,1);
 });
 test('autoplay error is acknowledged and restores transparency',async()=>{const f=await fixture(true);await f.poll();assert.equal(f.acks[0].error,'autoplay');assert.equal(f.label.hidden,true);assert.ok(f.videos.every(v=>v.style.display==='none'))});
 test('lost heartbeat hides both video and Replay without a server response',async()=>{const f=await fixture();await f.next();f.disconnect();assert.equal(f.label.hidden,true);assert.ok(f.videos.every(v=>v.paused&&v.style.display==='none'))});

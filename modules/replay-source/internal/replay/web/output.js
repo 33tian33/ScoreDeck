@@ -27,6 +27,7 @@ async function poll(){if(polling){pollAgain=true;return}clearTimeout(pollTimer);
   video.onended=()=>{if(playing===identity)finish()};video.onerror=()=>{if(playing===identity)finish('decode')};
   video.onplaying=()=>{if(playing!==identity)return;loadingSince=0;video.style.display='block';oldVideo.style.display='none';oldVideo.pause();if(item.kind==='replay')showTag(s.id);else hideTag();preloaded='';preloadNext(active)};
   if(preloaded!==identity)video.src=source(item);
+  video.playbackRate=item.kind==='replay'&&s.kind==='clip'&&[.25,.5,1].includes(s.rate)?s.rate:1;
   video.play().catch(e=>{if(playing===identity)finish(e.name==='NotAllowedError'?'autoplay':'decode')});
  }
  if(!loadingSince&&!ackPending)preloadNext(s);

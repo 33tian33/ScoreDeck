@@ -292,9 +292,10 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
       if(!local||!['127.0.0.1','localhost','[::1]'].includes(url.hostname))return json(response,403,{error:'导播控制栏仅限本机'});
       try{
         if(url.pathname==='/api/director/state'&&request.method==='GET')return json(response,200,await director.state());
-        if(url.pathname.startsWith('/api/director/clips/')&&['GET','HEAD'].includes(request.method)){
-          const target=director.clipUrl(url.pathname.slice('/api/director/'.length));
-          const upstream=http.request(target,{method:request.method,headers:request.headers.range?{Range:request.headers.range}:{}},r=>{response.writeHead(r.statusCode,{'Content-Type':'audio/wav','Cache-Control':'no-store',...Object.fromEntries(['content-length','content-range','accept-ranges'].filter(k=>r.headers[k]).map(k=>[k,r.headers[k]]))});r.pipe(response);});
+        if((url.pathname.startsWith('/api/director/clips/')||url.pathname.startsWith('/api/director/replay/media/'))&&['GET','HEAD'].includes(request.method)){
+          const replayMedia=url.pathname.startsWith('/api/director/replay/media/');
+          const target=replayMedia?director.replayUrl(url.pathname.slice('/api/director/replay/media/'.length)):director.clipUrl(url.pathname.slice('/api/director/'.length));
+          const upstream=http.request(target,{method:request.method,headers:request.headers.range?{Range:request.headers.range}:{}},r=>{response.writeHead(r.statusCode,{'Content-Type':replayMedia?'video/mp4':'audio/wav','Cache-Control':'no-store',...Object.fromEntries(['content-length','content-range','accept-ranges'].filter(k=>r.headers[k]).map(k=>[k,r.headers[k]]))});r.pipe(response);});
           upstream.setTimeout(5000,()=>upstream.destroy(Error('音频读取超时')));upstream.on('error',e=>{if(!response.headersSent)json(response,502,{error:e.message});else response.destroy();});response.on('close',()=>upstream.destroy());upstream.end();return;
         }
         if(request.method==='POST'){

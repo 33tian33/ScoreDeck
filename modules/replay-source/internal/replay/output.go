@@ -32,6 +32,7 @@ type OutputItem struct {
 	Kind string `json:"kind"`
 }
 type OutputSession struct {
+	Rate     float64      `json:"rate,omitempty"`
 	ID       string       `json:"id"`
 	Kind     string       `json:"kind"`
 	Round    int          `json:"round"`
@@ -77,6 +78,9 @@ func (a *Service) outputIncludesRound(kind string, round, candidate int) bool {
 	return true
 }
 func (a *Service) pendingOutputLocked(kind string, round int) bool {
+	if kind == "clip" {
+		return false
+	}
 	if kind == "round" {
 		return a.pendingRoundLocked(round)
 	}
@@ -172,7 +176,7 @@ func (a *Service) pendingRoundLocked(round int) bool {
 
 func (a *Service) appendOutputLocked() {
 	o := &a.output
-	if o.ID == "" || o.Due > 0 {
+	if o.ID == "" || o.Due > 0 || o.Kind == "clip" {
 		return
 	}
 	// Do not change a transition that has already begun.
@@ -300,6 +304,7 @@ func (a *Service) detectOutputLocked(p map[string]any) {
 	}
 }
 func (a *Service) outputRoutes(mux, api *http.ServeMux) {
+	a.directorOutputRoutes(api)
 	api.HandleFunc("POST /api/output/settings", func(w http.ResponseWriter, r *http.Request) {
 		var p OutputSettings
 		if e := decode(w, r, &p); e != nil {
@@ -487,6 +492,9 @@ func (a *Service) outputRoutes(mux, api *http.ServeMux) {
 			} else {
 				a.output.Index++
 				a.output.Deadline = nowMS() + 120000
+				if a.output.Kind == "clip" {
+					a.output.Deadline = nowMS() + int64(120000/a.output.Rate)
+				}
 				a.appendOutputLocked()
 				if a.output.ID != "" && a.output.Index >= len(a.output.Items) && !a.pendingOutputLocked(a.output.Kind, a.output.Round) {
 					a.output = OutputSession{}

@@ -1,6 +1,29 @@
 (()=>{'use strict';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];let meta,state,busy=false,polling=false,session=null,noticeTimer,previewId='',downId=null;
 const audio=$('#preview');
+let replayRate=1,replayPreviewId='',replayDownId=null;
+function renderReplay(){
+ const r=state?.replay,clip=r?.clip,video=$('#replay-video'),button=$('#replay-play');
+ const id=clip?.id||'';
+ if(id!==replayPreviewId){
+  replayPreviewId=id;video.pause();
+  if(id)video.src='/api/director/replay/media/'+encodeURIComponent(id);else video.removeAttribute('src');
+  video.load();
+ }
+ $('#replay-empty').hidden=!!clip;
+ $('#replay-empty').textContent=state?.replayError||'等待最新视频';
+ $('#replay-status').textContent=state?.replayError||(!r?'等待 Replay':!clip?'暂无视频':r.busy?'正在播出':!r.connected?'输出未连接':'R'+clip.round+' · '+(clip.player||clip.name||'最新视频'));
+ button.disabled=busy||!clip||!r?.connected||r?.busy;
+ button.title=clip?`${clip.name||clip.player||'最新 Replay'} · 点击以 ${replayRate} 倍速播出`:'等待最新视频';
+ $$('[data-replay-rate]').forEach(b=>{const selected=Number(b.dataset.replayRate)===replayRate;b.classList.toggle('active',selected);b.setAttribute('aria-pressed',String(selected));});
+}
+$$('[data-replay-rate]').forEach(b=>b.onclick=()=>{replayRate=Number(b.dataset.replayRate);renderReplay();});
+$('#replay-play').addEventListener('pointerdown',()=>{replayDownId=replayPreviewId;});
+$('#replay-play').onclick=e=>{
+ if(!state?.replay?.clip||busy||(e.detail!==0&&replayDownId!==replayPreviewId))return;
+ const id=replayPreviewId,rate=replayRate;replayDownId=null;
+ void act(()=>request('replay/play',{id,rate}));
+};
 function scalePanel(){document.documentElement.style.fontSize=(12*Math.max(.7,Math.min(2.5,innerWidth/1100,innerHeight/180)))+'px';}
 window.addEventListener('resize',scalePanel);scalePanel();
 async function request(path,body){if(body!==undefined&&!meta)meta=await (await fetch('/api/meta')).json();const r=await fetch('/api/director/'+path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...(meta?{'X-ScoreDeck-Key':meta.controlKey,'X-ScoreDeck-Epoch':meta.serverEpoch,'X-ScoreDeck-Control-Epoch':meta.controlEpoch}:{})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(6500)});const d=await r.json();if(!r.ok){if([401,409].includes(r.status)&&/授权/.test(d.error||''))meta=null;throw Error(d.error||'请求失败');}return d;}
@@ -43,6 +66,7 @@ function renderCameras(t={}){
 }
 document.addEventListener('pointerdown',e=>{cameraDownKey=e.target.closest('[data-camera-id]')?.dataset.cameraKey||null;});
 function render(){if(!state)return;const t=state.tracker||{},v=state.voice,c=t.controls||{};
+renderReplay();
 renderCameras(t);
 $('#connection').textContent=t.verified?'CS2 已连接':'未连接 CS2';$('#connection').classList.toggle('online',!!t.verified);
 for(const [key,value] of [['xray',c.xray],['ui',c.uiHidden]]){const button=$('#'+key);button.querySelector('b').textContent=value==null?'未知':key==='ui'?(value?'隐藏含击杀提示':'完整'):(value?'开':'关');button.disabled=busy||!t.verified||c.busy;button.classList.toggle('active',value===true);}
@@ -67,7 +91,7 @@ el._clip=clip;el.querySelector('small').textContent=clipTime(clip.startMs)+' · 
 for(const e of existing.values())e.remove();if(!clips.length){const e=document.createElement('p');e.className='empty';e.textContent=state.voice?'等待符合条件的音频片段…':'启动 VoiceBridge，等待音频片段';strip.append(e);}
 if(scrolled&&anchorId){const e=[...strip.children].find(e=>e.dataset.id===anchorId);if(e)strip.scrollLeft=e.offsetLeft-strip.offsetLeft-anchorOffset;}else if(!scrolled)strip.scrollLeft=0;
 }
-async function poll(){if(polling)return;polling=true;const revision=trackerRevision;try{const next=await request('state');if(revision!==trackerRevision||trackerPending)return;state=next;leaseActive=!!state.tracker?.active;render();}catch(e){if(revision!==trackerRevision||trackerPending)return;leaseActive=false;state=null;stopPreview();renderCameras();$$('.game button,.clip button').forEach(b=>b.disabled=true);$('#connection').textContent='服务已断开';$('#voice-status').textContent=e.message;}finally{polling=false;}}
+async function poll(){if(polling)return;polling=true;const revision=trackerRevision;try{const next=await request('state');if(revision!==trackerRevision||trackerPending)return;state=next;leaseActive=!!state.tracker?.active;render();}catch(e){if(revision!==trackerRevision||trackerPending)return;leaseActive=false;state=null;stopPreview();renderReplay();renderCameras();$$('.game button,.clip button').forEach(b=>b.disabled=true);$('#connection').textContent='服务已断开';$('#voice-status').textContent=e.message;}finally{polling=false;}}
 $$('[data-toggle]').forEach(b=>b.onclick=()=>act(()=>tracker('toggle',{key:b.dataset.toggle})));
 $$('[data-type]').forEach(b=>b.onclick=()=>act(()=>tracker('start',{type:b.dataset.type})));
 $('#connect').onclick=()=>act(()=>tracker('connect'));$('#return').onclick=()=>state?.tracker?.returning?void tracker('cancel-return').catch(e=>tell(e.message)):act(()=>tracker('stop'));

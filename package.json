@@ -1,8 +1,8 @@
 {
   "name": "scoredeck-cs-broadcast",
-  "version": "2.18.7",
+  "version": "2.18.9",
   "private": true,
-  "description": "ScoreDeck CS 2.18.7 — Tournament and broadcast director tools",
+  "description": "ScoreDeck CS 2.18.9 — Tournament and broadcast director tools",
   "main": "desktop/main.cjs",
   "type": "module",
   "dependencies": {},

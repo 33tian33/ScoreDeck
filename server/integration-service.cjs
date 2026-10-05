@@ -34,6 +34,20 @@ function createIntegrationService({dataDir,moduleRoot=path.join(__dirname,'..','
   function meta(id){const r=record(id);return {id,name:names[id],version:id==='replay'?'0.2.5':'0.6.4-sd',...prefs[id],identity:identity.meta(id),phase:r.phase,error:r.error,generation:r.generation,controlUrl:url(id)+'/',outputUrl:url(id)+(id==='replay'?'/output.html':'/overlay?output=program'),dataDir:dataPath(id),logFile:path.join(root,id+'.log'),busy:r.busy};}
   function all(){return Object.fromEntries(Object.keys(records).map(id=>[id,meta(id)]));}
   function prepareVoice(){const d=dataPath('voicebridge');fs.mkdirSync(d,{recursive:true});const f=path.join(d,'.env');if(!fs.existsSync(f))fs.copyFileSync(path.join(moduleRoot,'voicebridge','.env.example'),f);}
+  async function prepareReplay(){
+    const response=await fetch(url('replay')+'/api/state',{signal:AbortSignal.timeout(5000)});
+    if(!response.ok)throw Error('无法读取 Replay 默认转场设置');
+    const {state}=await response.json();
+    const missing=[1,2].filter(slot=>!state.output['transition'+slot]);
+    if(!missing.length)return;
+    const video=await fs.promises.readFile(path.join(moduleRoot,'replay','assets','Replay-gold.mp4'));
+    for(const slot of missing){
+      const result=await fetch(url('replay')+`/api/output/transition/${slot}?name=Replay-gold.mp4`,{
+        method:'POST',headers:{'Content-Type':'video/mp4'},body:video,signal:AbortSignal.timeout(10000)
+      });
+      if(!result.ok)throw Error(`Replay 默认转场 ${slot} 导入失败（HTTP ${result.status}）`);
+    }
+  }
   async function launch(id){
     const r=record(id);if(closed)throw Error('ScoreDeck 正在退出');
     if(r.child)throw Error('模块仍在运行或退出中');
@@ -72,11 +86,16 @@ function createIntegrationService({dataDir,moduleRoot=path.join(__dirname,'..','
     // Verify this exact child, never attach to an unrelated process on a reused port.
     for(let i=0;i<120;i++){
       if(r.child!==child||r.phase==='error')throw Error(r.error||'模块在启动过程中退出');
+      let ready=false;
       try{
         const response=await fetch(url(id)+(id==='replay'?'/scoredeck/health':'/healthz'),{signal:AbortSignal.timeout(400)});
         const status=await response.json();
-        if(response.ok&&status.ok&&status.instance===instance){r.phase='running';r.generation++;await identity.sync(id,true);return meta(id);}
+        ready=response.ok&&status.ok&&status.instance===instance;
       }catch{}
+      if(ready){
+        if(id==='replay')await prepareReplay();
+        r.phase='running';r.generation++;await identity.sync(id,true);return meta(id);
+      }
       await delay(150);
     }
     throw Error(`${names[id]} 启动超时，请查看运行日志。`);
