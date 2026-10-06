@@ -1,8 +1,12 @@
 (function(root,factory){const api=factory(typeof module==='object'?require('./tournament-flow.cjs'):root.ScoreDeckFlow);if(typeof module==='object')module.exports=api;else root.ScoreDeckDisplay=api;})(globalThis,function(F){
 'use strict';
 const chunks=(xs,n)=>Array.from({length:Math.ceil(xs.length/n)},(_,i)=>xs.slice(i*n,i*n+n));
+// Unknown or incomplete start times retain their original order after dated matches.
+function startTime(m){if(!/^\d{4}-\d{2}-\d{2}$/.test(m.date||'')||!/^\d{2}:\d{2}$/.test(m.time||''))return null;const value=Date.parse(`${m.date}T${m.time}:00Z`);return Number.isFinite(value)?value:null;}
+function chronological(ms){return ms.map((m,i)=>({m,i,time:startTime(m)})).sort((a,b)=>a.time===null?(b.time===null?a.i-b.i:1):b.time===null?-1:a.time-b.time||a.i-b.i).map(x=>x.m);}
+function searchMatch(s,m,query){const words=String(query||'').trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);if(!words.length)return true;const teams=s.teams.filter(t=>[m.teamAId,m.teamBId].includes(t.id));const players=[...teams.flatMap(t=>t.players||[]),...(m.mapDetails||[]).flatMap(d=>[...(d.teamA||[]),...(d.teamB||[])])];const haystack=[...teams.flatMap(t=>[t.name,t.shortName]),...players.flatMap(p=>[p.id,p.name,p.nickname,p.playerId,p.steamId])].filter(Boolean).join(' ').toLocaleLowerCase();return words.every(w=>haystack.includes(w));}
 function stage(s,key=s.selectedStageId){return s.stages?.find(st=>st.id===key)||s.stages?.[0];}
-function matches(s,st){return st?F.matchesOf(s,st.id).filter(m=>!m.inactive&&!m.autoBye).sort((a,b)=>a.scheduleOrder-b.scheduleOrder):[];}
+function matches(s,st){return st?chronological(F.matchesOf(s,st.id).filter(m=>!m.inactive&&!m.autoBye).sort((a,b)=>a.scheduleOrder-b.scheduleOrder)):[];}
 function config(s,st=stage(s)){const raw={...s.flowDisplay?.[st?.id],...s.flowViewOverride};return {groupCount:[1,2,4].includes(Number(raw.groupCount))?Number(raw.groupCount):2,focusSize:[1,2,4].includes(Number(raw.focusSize))?Number(raw.focusSize):4,groupIds:Array.isArray(raw.groupIds)?raw.groupIds.filter(id=>st?.groups.some(g=>g.id===id)):[],matchIds:Array.isArray(raw.matchIds)?raw.matchIds.filter(id=>matches(s,st).some(m=>m.id===id)):[],focusMode:raw.focusMode==='manual'?'manual':'round',round:raw.round||'',schedule:raw.schedule||'pending'};}
 function primary(s,key=s.selectedStageId,preferred=s.selectedMatchId){const st=stage(s,key),ms=matches(s,st);return ms.find(m=>m.id===preferred)||ms.find(m=>m.id===s.flowDisplay?.[st?.id]?.primaryMatchId)||ms.find(m=>m.status==='live')||ms.find(m=>m.status==='upcoming')||ms[0];}
 function selectStage(s,key){const old=stage(s),m=primary(s);if(old&&m){s.flowDisplay||={};s.flowDisplay[old.id]={...s.flowDisplay[old.id],primaryMatchId:m.id};}s.selectedStageId=key;s.selectedMatchId=primary(s,key,'')?.id||'';s.flowOutputPage=0;return s;}
@@ -19,5 +23,5 @@ function pages(s,scene){const st=stage(s);if(!st)return [];const c=config(s,st);
 }
 function page(s,scene){const all=pages(s,scene),index=all.length?Math.max(0,Math.floor(Number(s.flowOutputPage)||0))%all.length:0;return {st:stage(s),content:all[index],index,total:all.length};}
 function sourceLabel(s,m,side){const st=F.stageOf(s,m.stageId),src=F.indexes(s).ins.get(`${m.id}/${side}`)||m[`entry${side}`];return F.label(s,st,src);}
-return {stage,matches,config,primary,selectStage,focusMatches,ledger,bracketPages,pages,page,sourceLabel};
+return {stage,matches,config,primary,selectStage,focusMatches,ledger,bracketPages,pages,page,sourceLabel,startTime,chronological,searchMatch};
 });

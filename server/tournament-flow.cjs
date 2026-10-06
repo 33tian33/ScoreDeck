@@ -238,7 +238,7 @@ function enforceSave(previous,next,reason='auto'){if(!enabled(next))return next;
  const meaningful=m=>['live','completed'].includes(m.status)||Number(m.scoreA)>0||Number(m.scoreB)>0||/^(W|F|WW|FF)$/i.test(String(m.scoreA))||/^(W|F|WW|FF)$/i.test(String(m.scoreB))||(m.mapScores||[]).some(R.validMap)||(m.mapDetails||[]).some(x=>x.teamA?.length||x.teamB?.length);
  const changed=next.matches.some(m=>{const old=before.get(m.id);return !m.autoBye&&meaningful(m)&&(!old||resultData(m)!==resultData(old));});
  if(changed&&!isActive(next))throw Error('请先在赛事设置中完成全部去向并“校验并启用”，再录入赛果');
- if(!isActive(next)&&((next.liveScene!==previous.liveScene&&next.liveScene!=='blank')||next.outputCycle?.enabled&&!previous.outputCycle?.enabled))throw Error('草稿赛事不能投入播出，请先校验并启用');
+ if(!isActive(next)&&((next.liveScene!==previous.liveScene&&!['blank','custom1','custom2'].includes(next.liveScene))||next.outputCycle?.enabled&&!previous.outputCycle?.enabled))throw Error('草稿赛事不能投入播出，请先校验并启用');
  }return next;}
 
 

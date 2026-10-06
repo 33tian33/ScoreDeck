@@ -13498,6 +13498,7 @@ function Ve({ state: e }) {
       });
 }
 function He({ state: e, scene: t, motion: n = ``, transitionSeconds: r = 0, transitionOffset = 0 }) {
+  if(ScoreDeckPanels.ids.includes(t))return l.createElement(sdCustomOutput,{state:e,scene:t,key:t});
   if(globalThis.ScoreDeckFlow?.enabled(e)&&!ScoreDeckFlow.isActive(e))return (0,O.jsxs)(`section`,{className:`scene sf-output sf-output-empty`,children:[(0,O.jsx)(`h1`,{children:`赛事尚未启用`}),(0,O.jsx)(`p`,{children:`请在赛事设置中完成全部路径校验并启用赛事`})]});
   if(t===`halftime`)return (0,O.jsx)(`iframe`,{title:`中场节目输出`,src:`/output/halftime`+(new URLSearchParams(location.search).has(`preview`)?`?preview=1`:``),allow:`autoplay`,style:{position:`fixed`,inset:0,width:`100%`,height:`100%`,border:0,zIndex:10}});
   let i = y(e),
@@ -15905,6 +15906,8 @@ function sdEntranceReady(e) {
   });
 }
 var zt = [
+    {id:`custom1`,label:`自定义推送 1`,eyebrow:`自由画布`},
+    {id:`custom2`,label:`自定义推送 2`,eyebrow:`自由画布`},
     { id: `focus`, label: `赛段聚焦`, eyebrow: `赛前暖场` },
     { id: `standings`, label: `积分与排名`, eyebrow: `晋级形势` },
     { id: `thirdPlace`, label: `第三名排行榜`, eyebrow: `独立榜单` },
@@ -16043,7 +16046,7 @@ function Wt({ state: e, setState: t, meta: n, connection: r }) {
                 children: [
                   (0, O.jsx)(`strong`, { children: `ScoreDeck` }),
                   (0, O.jsx)(`span`, {
-                    children: `导播工作台 · 2.18.10`,
+                    children: `导播工作台 · 2.18.11`,
                   }),
                 ],
               }),
@@ -16226,7 +16229,7 @@ function Kt({ state: e, commit: t, setLiveScene: n, meta: r }) {
         );
       });
   return (0, O.jsxs)(`div`, {
-    className: `workspace live-workspace`,
+    className: `workspace live-workspace ${ScoreDeckPanels.ids.includes(preview)?`sd-custom-mode`:``}`,
     children: [
       (0, O.jsxs)(`section`, {
         className: `panel scene-panel`,
@@ -16265,7 +16268,7 @@ function Kt({ state: e, commit: t, setLiveScene: n, meta: r }) {
                       children: [`0`, r + 1],
                     }),
                     (0, O.jsx)(`small`, { children: t.eyebrow }),
-                    (0, O.jsx)(`strong`, { children: t.label }),
+                    (0, O.jsx)(`strong`, { children: e.customPanels?.[t.id]?.name||t.label }),
                     e.liveScene === t.id &&
                       !(c && (t.id === `focus` || t.id === `knockoutFocus`)) &&
                       (0, O.jsx)(`i`, { children: `ON AIR` }),
@@ -16281,6 +16284,7 @@ function Kt({ state: e, commit: t, setLiveScene: n, meta: r }) {
           ]}),
         ],
       }),
+      ScoreDeckPanels.ids.includes(preview) && SDHooks.createElement(sdCustomEditor,{state:e,commit:t,scene:preview,key:preview}),
       (!ScoreDeckFlow.enabled(e)||ScoreDeckDisplay.stage(e)?.type===`group`) && (0, O.jsxs)(`section`, {
         className: `panel third-live-card`,
         children: [

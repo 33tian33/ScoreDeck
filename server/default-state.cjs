@@ -33,6 +33,7 @@ function createDefaultState() {
   const matches = [];
 
   return {
+    customPanels: require("./custom-panels.cjs").normalize(),
     stages: [],
     flowLifecycle: { status: "draft" },
     selectedStageId: "",
@@ -182,6 +183,7 @@ function migrateStateRaw(input) {
   return {
     ...defaults,
     ...input,
+    customPanels: require("./custom-panels.cjs").normalize(input.customPanels),
     halftime: require("./halftime.cjs").normalize(input.halftime),
     sponsors: {enabled: input.sponsors?.enabled !== false, slots: Array.from({length:4},(_,i)=>({logoImage:typeof input.sponsors?.slots?.[i]?.logoImage==='string'?input.sponsors.slots[i].logoImage:'',fit:input.sponsors?.slots?.[i]?.fit==='fill'?'fill':'cover'}))},
     schemaVersion: 19,
@@ -216,7 +218,7 @@ function migrateStateRaw(input) {
       nodes: (Array.isArray(input.outputCycle?.nodes) ? input.outputCycle.nodes : defaults.outputCycle.nodes).map((node, index) => ({
         id: String(node.id || `cycle-${index + 1}`),
         label: String(node.label || `页面 ${index + 1}`),
-        scene: ["focus", "standings", "thirdPlace", "prematch", "bracket", "knockoutFocus", "postmatch", "schedule", "mapStats", "mapBP"].includes(node.scene) ? node.scene : "prematch",
+        scene: ["focus", "standings", "thirdPlace", "prematch", "bracket", "knockoutFocus", "postmatch", "schedule", "mapStats", "mapBP", "custom1", "custom2"].includes(node.scene) ? node.scene : "prematch",
         group: groups.includes(String(node.group || "").toUpperCase()) ? String(node.group).toUpperCase() : String(input.selectedGroup || ""),
         stageId: typeof node.stageId === "string" ? node.stageId : "",
         flowMatchId: typeof node.flowMatchId === "string" ? node.flowMatchId : "",

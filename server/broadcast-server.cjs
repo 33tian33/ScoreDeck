@@ -380,7 +380,7 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
       upstream.on('error',()=>{if(!response.headersSent)json(response,502,{error:'Replay 媒体不可用'});else response.destroy();});
       response.on('close',()=>upstream.destroy());upstream.end();return;
     }
-    if(url.pathname==='/api/halftime/media'&&request.method==='POST'){
+    if(['/api/halftime/media','/api/media/custom-panel'].includes(url.pathname)&&request.method==='POST'){
       try{assertWriter();const ext={'image/png':'.png','image/jpeg':'.jpg','image/webp':'.webp','video/mp4':'.mp4','video/webm':'.webm'}[String(request.headers['content-type']).split(';')[0]];
         if(!ext)return json(response,415,{error:'支持 PNG / JPG / WebP / MP4 / WebM'});
         const bytes=await collectBuffer(request,ext.startsWith('.mp')||ext==='.webm'?256*1024*1024:8*1024*1024);assertWriter();if(!bytes.length)throw Error('文件为空');
