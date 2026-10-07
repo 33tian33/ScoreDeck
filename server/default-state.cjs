@@ -135,9 +135,9 @@ function normalizePlayerMapStat(input, index) {
     playerId: String(input?.playerId || ""),
     steamId: input?.steamId || "", adr: Number.isFinite(input?.adr)?input.adr:null,
     starter: typeof input?.starter === "boolean" ? input.starter : index < 5,
-    kills: Number.isFinite(Number(input?.kills)) ? Number(input.kills) : 0,
-    deaths: Number.isFinite(Number(input?.deaths)) ? Number(input.deaths) : 0,
-    assists: Number.isFinite(Number(input?.assists)) ? Number(input.assists) : 0,
+      kills: input?.kills==null||input.kills===''?null:Number.isFinite(Number(input.kills))?Number(input.kills):null,
+      deaths: input?.deaths==null||input.deaths===''?null:Number.isFinite(Number(input.deaths))?Number(input.deaths):null,
+      assists: input?.assists==null||input.assists===''?null:Number.isFinite(Number(input.assists))?Number(input.assists):null,
     rating: input?.rating===null||input?.rating===undefined||input?.rating==='' ? null : Number.isFinite(Number(input.rating)) ? Number(input.rating) : null,
   };
 }

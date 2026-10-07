@@ -361,7 +361,7 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
     }
     if(url.pathname==='/api/match-data'&&request.method==='GET')return json(response,200,{...matchData.stats(state),connected:!!latestGSI?.connected&&latestGSI.sourceAgeMs<=10000,players:Object.entries(latestGSI?.allplayers||{}).map(([id,p])=>({id,name:p.name,side:p.team})),templates:matchData.template(matchData.currentMatch(state)?.bestOf,matchData.currentMatch(state)?.bpFirstSide),maps:matchData.MAPS});
     if(url.pathname==='/api/match-bp'&&request.method==='POST'){
-      try{const body=await collectBody(request,30000);assertWriter();const next=structuredClone(state),m=next.matches.find(m=>m.id===body.matchId);if(!m)throw Error('比赛不存在');if((body.base?.teamAId!==undefined&&body.base.teamAId!==m.teamAId)||(body.base?.teamBId!==undefined&&body.base.teamBId!==m.teamBId)||body.base?.bestOf!==m.bestOf||JSON.stringify(body.base?.bp)!==JSON.stringify(m.bp||[])||(body.base?.bpFirstSide||'A')!==(m.bpFirstSide||'A'))return json(response,409,{error:'BP 或 BO 已变化，请重新载入'});matchData.applyBP(m,body.steps,body.firstSide??m.bpFirstSide??'A');persist(next);return json(response,200,{ok:true});}catch(e){return json(response,400,{error:e.message});}
+      try{const body=await collectBody(request,30000);assertWriter();const next=structuredClone(state),m=next.matches.find(m=>m.id===body.matchId);if(!m)throw Error('比赛不存在');if((body.base?.teamAId!==undefined&&body.base.teamAId!==m.teamAId)||(body.base?.teamBId!==undefined&&body.base.teamBId!==m.teamBId)||body.base?.bestOf!==m.bestOf||JSON.stringify(body.base?.bp)!==JSON.stringify(m.bp||[])||(body.base?.bpFirstSide||'A')!==(m.bpFirstSide||'A'))return json(response,409,{error:'BP 或 BO 已变化，请重新载入'});matchData.applyBP(m,body.steps,body.firstSide??m.bpFirstSide??'A',body.preserveOrder===true);persist(next);return json(response,200,{ok:true});}catch(e){return json(response,400,{error:e.message});}
     }
     if(url.pathname==='/api/halftime'&&request.method==='GET')return json(response,200,halftimeSnapshot(url.searchParams.get('mode')));
     if(url.pathname==='/api/halftime/replay'&&request.method==='GET'){
@@ -408,6 +408,14 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
         assertWriter();if(before.revision!==half.normalize(state.halftime).revision)return json(response,409,{error:'中场设置已变化，本次操作未执行'});
         validateMedia(next);persist({...state,halftime:next});return json(response,200,halftimeSnapshot());
       }catch(e){return json(response,400,{error:e.message});}
+    }
+    if(url.pathname==='/api/match-result'&&request.method==='POST'){
+      try{
+        const body=await collectBody(request);assertWriter();
+        const next=structuredClone(state);
+        matchData.saveResult(next,body);
+        return json(response,200,{...persist(next),serverTime:Date.now()});
+      }catch(error){return json(response,400,{error:error.message});}
     }
     if(url.pathname==='/api/state'&&request.method==='PATCH'){
       try{

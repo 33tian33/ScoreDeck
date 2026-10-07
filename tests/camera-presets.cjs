@@ -21,7 +21,7 @@ test('exact user selection: 8 maps and 36 Chinese-labelled finite camera poses',
  for(const [map,expected] of Object.entries(ids)){
   assert.equal(MAP_CAMERAS[map].presets.map(p=>p.id).join(' '),expected);
   const t=setup();t.ingest(map);assert.equal(t.tracker.cameraStatus().presets.length,expected.split(' ').length);
-  for(const p of MAP_CAMERAS[map].presets){count++;assert.match(p.label,/[\u4e00-\u9fff]/);assert.equal(p.pose.length,5);assert.ok(p.pose.every(Number.isFinite));t.click(p.id);assert.equal(t.link.commands.at(-1),'spec_autodirector 0; spec_mode 6; spec_goto '+p.pose.join(' '));}
+  for(const p of MAP_CAMERAS[map].presets){count++;assert.match(p.label,/[\u4e00-\u9fff]/);assert.equal(p.pose.length,5);assert.ok(p.pose.every(Number.isFinite));t.click(p.id);assert.equal(t.link.commands.at(-1),'spec_autodirector 0; spec_goto '+p.pose.join(' '));}
  }
  assert.equal(count,36);
  assert.deepEqual(MAP_CAMERAS.de_dust2.presets.at(-1).pose,[-410.5,1170.8,247.2,39.6,65]);

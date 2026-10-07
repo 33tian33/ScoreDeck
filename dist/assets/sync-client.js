@@ -106,6 +106,10 @@
   }
   function mutate(update){if(!visible)return Promise.reject(new Error('尚未连接服务'));const base=clone(visible);return enqueue(base,update(clone(base)));}
   function mutateFrom(base,update){return enqueue(base,update(clone(base)));}
+  async function saveResult(result){
+    const state=await request('/api/match-result',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(result)});
+    accept(state);return state;
+  }
   async function replace(state,expectedRevision=confirmed?.revision){
     if(queue.length||failedDraft)throw new Error('请先完成保存并处理未保存草稿，再导入。');
     const result=await request('/api/state',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...state,expectedRevision})});accept(result);return result;
@@ -122,7 +126,7 @@
   const events=new EventSource('/api/events');
   events.addEventListener('state',e=>{connection='online';accept(JSON.parse(e.data));if(queue.length)pump();});
   events.addEventListener('meta',e=>{meta={...meta,...JSON.parse(e.data)};publish();});events.onerror=()=>{connection='offline';publish();};
-  window.SDClient={get state(){return visible},get meta(){return meta},get issue(){return issue},get pending(){return queue.length},get failedDraft(){return failedDraft},now:()=>Date.now()+clockOffset,authHeaders,diff,apply,mutate,mutateFrom,replace,request,handoff,
+  window.SDClient={get state(){return visible},get meta(){return meta},get issue(){return issue},get pending(){return queue.length},get failedDraft(){return failedDraft},now:()=>Date.now()+clockOffset,authHeaders,diff,apply,mutate,mutateFrom,saveResult,replace,request,handoff,
     subscribe(fn){observers.add(fn);fn(visible,meta,connection);return()=>observers.delete(fn);},retry(){connection='online';pump();},dismiss(){issue='';failedDraft=null;publish();}
   };
   addEventListener('beforeunload',e=>{if(queue.length||failedDraft){e.preventDefault();e.returnValue='';}});connect();

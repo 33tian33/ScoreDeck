@@ -28,7 +28,7 @@ const free=()=>new Promise(r=>{const s=net.createServer().listen(0,'127.0.0.1',(
    for(const p of data.presets){
     const start=commands.length;await page.locator(`[data-camera-id="${p.id}"]`).click();
     await page.waitForFunction(id=>document.querySelector(`[data-camera-id="${id}"]`)?.getAttribute('aria-pressed')==='true',p.id);
-    assert.ok(commands.slice(start).includes('spec_autodirector 0; spec_mode 6; spec_goto '+p.pose.join(' ')),p.id);clicked++;
+    assert.ok(commands.slice(start).includes('spec_autodirector 0; spec_goto '+p.pose.join(' ')),p.id);clicked++;
    }
   }
   // The UI cannot send a previous map's key after the GSI has switched.

@@ -51,7 +51,12 @@ test('BP editor saves side picker/CT-T, preserves selections when first side cha
  select('BP 3 选边队伍').props.onChange({target:{value:'A'}});render();select('BP 3 开局阵营').props.onChange({target:{value:'T'}});render();select('BP 先手方').props.onChange({target:{value:'B'}});render();
  assert.equal(select('BP 3 开局阵营').props.value,'T');assert.equal(select('BP 3 选边队伍').props.value,'A');
  await find(tree,n=>n.type==='button'&&text(n)==='保存 BP')[0].props.onClick();assert.equal(payload.steps[2].sidePicker,'A');assert.equal(payload.steps[2].startSide,'T');assert.equal(payload.firstSide,'B');assert.equal(payload.base.teamAId,'a');M.applyBP(structuredClone(m),JSON.parse(JSON.stringify(payload.steps)),payload.firstSide);
- select('BP 3').props.onChange({target:{value:'vertigo'}});render();assert.equal(select('BP 3 选边队伍').props.value,'');assert.equal(select('BP 3 开局阵营').props.value,'');
+ assert.equal(find(select('BP 3'),n=>n.type==='option'&&n.props.value==='cache').length,1);
+ select('BP 3').props.onChange({target:{value:'cache'}});render();assert.equal(select('BP 3 选边队伍').props.value,'');assert.equal(select('BP 3 开局阵营').props.value,'');
+ await find(tree,n=>n.type==='button'&&text(n)==='保存 BP')[0].props.onClick();
+ const saved=structuredClone(m);M.applyBP(saved,JSON.parse(JSON.stringify(payload.steps)),payload.firstSide);assert.equal(saved.mapScores[0].map,'de_cache');
+ assert.equal(find(select('BP 4'),n=>n.type==='option'&&n.props.value==='cache')[0].props.disabled,true);
+ for(const ext of ['png','svg'])assert.ok(fs.statSync(path.join(__dirname,'../dist/assets/maps/cache.'+ext)).size>0);
 });
 
 test('unfilled BP steps stay pending without completed-ban claims or invented opening sides',()=>{

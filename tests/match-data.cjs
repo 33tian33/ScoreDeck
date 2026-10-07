@@ -1,5 +1,28 @@
-const {createTestState}=require('./fixtures/state.cjs');
 const {test}=require('node:test'),assert=require('node:assert/strict'),M=require('../server/match-data.cjs'),H=require('../server/highlights.cjs'),D=require('../server/default-state.cjs'),F=require('../server/tournament-flow.cjs');
+const {createTestState}=require('./fixtures/state.cjs');
+test('GOTV team names and tags bind complete nicknames across side swaps',()=>{
+ const {s,m,g}=fixture();
+ s.teams[0].name='Team Alpha';s.teams[0].shortName='TA';s.teams[1].name='Team Beta';s.teams[1].shortName='TB';
+ s.teams[0].players[0].id='Nick With Spaces';s.teams[1].players[0].id='Nick With Spaces';
+ for(let i=0;i<2;i++)s.teams[i].players.slice(0,5).forEach((p,j)=>{g.allplayers['steam'+i+j].name=((j%2?s.teams[i].shortName:s.teams[i].name)+'  '+p.id).toUpperCase();});
+ assert.equal(M.ingest(s,g),true);
+ assert.equal(Object.keys(m.gsiBindings).length,10);
+ assert.equal(m.gsiBindings.steam00.side,'A');assert.equal(m.gsiBindings.steam10.side,'B');
+ assert.equal(m.mapDetails[0].teamA[0].kills,10);
+ for(const p of Object.values(g.allplayers))p.team=p.team==='CT'?'T':'CT';
+ g.map.teamT.score=9;assert.equal(M.ingest(s,g),true);assert.equal(m.mapScores[0].a,9);
+});
+test('GOTV prefixes require a known team and whitespace; ambiguous matches stay unbound',()=>{
+ for(const mode of ['unknown','no-space','ambiguous','configured','duplicate']){
+  const {s,m,g}=fixture(),t=s.teams[0],p=t.players[0];t.name='Team Alpha';t.shortName='TA';
+  g.allplayers.steam00.name=mode==='unknown'?'Unknown '+p.id:mode==='no-space'?'TA'+p.id:'TA '+p.id;
+  if(mode==='ambiguous')t.players[1].id=p.id;
+  if(mode==='configured')p.steamId='76561198000000001';
+  if(mode==='duplicate')g.allplayers.extra=structuredClone(g.allplayers.steam00);
+  M.ingest(s,g);assert.equal(m.gsiBindings.steam00,undefined,mode);
+ }
+});
+
 function fixture(){const s=createTestState(),st=F.addStage(s,'playoff',{teamCount:2});st.slots.forEach((sl,i)=>sl.teamId=s.teams[i].id);F.reconcile(s);F.activate(s);s.selectedStageId=st.id;s.selectedMatchId=F.matchesOf(s,st.id)[0].id;const m=M.currentMatch(s);m.status='live';const g={connected:true,sourceAgeMs:12,map:{name:'de_anubis',phase:'live',teamCT:{score:4},teamT:{score:2}},allplayers:{}};for(let i=0;i<2;i++)s.teams[i].players.slice(0,5).forEach((p,j)=>g.allplayers['steam'+i+j]={name:p.id,team:i?'T':'CT',match_stats:{kills:10+j,deaths:2,assists:3}});return {s,m,g};}
 test('GSI tracks player identities across side swap and preserves each map on restart',()=>{const {s,m,g}=fixture();assert.ok(M.ingest(s,g));assert.equal(m.mapDetails[0].teamA[0].kills,10);assert.equal(m.mapDetails[0].teamA[0].adr,null);assert.equal(m.mapScores[0].a,4);assert.equal(M.ingest(s,g),false);for(const p of Object.values(g.allplayers))p.team=p.team==='CT'?'T':'CT';g.map.teamT.score=9;g.map.teamCT.score=6;assert.ok(M.ingest(s,g));assert.equal(m.mapScores[0].a,9);assert.equal(m.mapScores[0].b,6);g.map.name='de_nuke';g.map.teamT.score=1;g.map.teamCT.score=0;assert.ok(M.ingest(s,g));assert.equal(m.currentMapIndex,1);assert.equal(m.mapDetails[0].a,9);assert.equal(m.mapDetails[1].a,1);const restored=D.migrateState(JSON.parse(JSON.stringify(s)));assert.equal(M.currentMatch(restored).mapDetails[0].teamA[0].kills,10);assert.equal(M.currentMatch(restored).mapDetails[0].teamA[0].adr,null);g.sourceAgeMs=20000;assert.equal(M.ingest(s,g),false);});
 test('GSI refuses unknown or ambiguous teams; explicit steam binding resolves it',()=>{const {s,m,g}=fixture();for(const p of Object.values(g.allplayers))p.name='unmatched';assert.equal(M.ingest(s,g),false);m.gsiBindings={steam00:{side:'A',playerId:s.teams[0].players[0].id},steam10:{side:'B',playerId:s.teams[1].players[0].id}};assert.ok(M.ingest(s,g));m.gsiEnabled=false;g.map.teamCT.score++;assert.equal(M.ingest(s,g),false);});
@@ -40,4 +63,17 @@ test('GSI never fills pending map slots with banned, unused, missing or unsuppor
  g.map.name='de_nuke';assert.equal(M.ingest(s,g),true);assert.equal(m.mapScores[0].map,'de_nuke');
  const f=fixture();f.m.bestOf=2;const bo2=M.template(2);bo2[6].map='anubis';M.applyBP(f.m,bo2);
  assert.equal(M.ingest(f.s,f.g),false);
+});
+
+
+test('manual result wins over live data and survives reload without later GSI overwrites',()=>{
+ const {s,m,g}=fixture();assert.equal(M.ingest(s,g),true);
+ const details=Array.from({length:m.bestOf},(_,i)=>({map:i===0?'de_anubis':'MAP',a:i===0?13:null,b:i===0?8:null,teamA:[],teamB:[]}));
+ for(const d of details)for(const [i,side]of ['teamA','teamB'].entries())d[side]=s.teams[i].players.slice(0,5).map(p=>({playerId:p.id,starter:true,kills:25,deaths:8,assists:4,rating:1.5}));
+ const body={matchId:m.id,teamAId:m.teamAId,teamBId:m.teamBId,bestOf:m.bestOf,mapDetails:details,mvp:{teamId:m.teamAId,playerId:details[0].teamA[0].playerId}};
+ assert.throws(()=>M.saveResult(s,{...body,teamAId:'other'}),/双方/);
+ M.saveResult(s,body);assert.equal(m.mapScores[0].a,13);assert.equal(m.mapDetails[0].teamA[0].kills,25);assert.equal(m.scoreA,1);
+ g.map.teamCT.score=10;assert.equal(M.ingest(s,g),false);assert.equal(m.mapScores[0].a,13);
+ const restored=D.migrateState(JSON.parse(JSON.stringify(s)));assert.equal(M.ingest(restored,g),false);assert.equal(M.currentMatch(restored).mapDetails[0].teamA[0].kills,25);
+ body.mapDetails[0].a=16;body.mapDetails[0].b=14;M.saveResult(restored,body);assert.equal(M.currentMatch(restored).mapScores[0].a,16);
 });

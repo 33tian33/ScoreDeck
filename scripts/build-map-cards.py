@@ -3,7 +3,7 @@ from pathlib import Path
 from urllib.request import urlopen
 import json,base64,hashlib,concurrent.futures
 root=Path(__file__).resolve().parents[1];out=root/'dist/assets/maps';out.mkdir(parents=True,exist_ok=True)
-maps=['dust2','mirage','inferno','nuke','ancient','anubis','overpass','train','vertigo']
+maps=['dust2','mirage','inferno','nuke','ancient','anubis','overpass','train','vertigo','cache']
 def build(key):
  url=f'https://raw.githubusercontent.com/MurkyYT/cs2-map-icons/main/images/thumbs/de_{key}_1_png.png'
  data=urlopen(url,timeout=45).read();(out/f'{key}.png').write_bytes(data)

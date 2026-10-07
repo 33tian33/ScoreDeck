@@ -12686,9 +12686,9 @@ function x(e, t, n) {
   return {
     ...n, playerId: e,
     starter: typeof n?.starter == `boolean` ? n.starter : t,
-    kills: b(n?.kills),
-    deaths: b(n?.deaths),
-    assists: b(n?.assists),
+    kills: n?.kills==null||n?.kills===``?null:b(n.kills),
+    deaths: n?.deaths==null||n?.deaths===``?null:b(n.deaths),
+    assists: n?.assists==null||n?.assists===``?null:b(n.assists),
     rating: n?.rating===null||n?.rating===undefined||n?.rating===``?null:b(n.rating),
   };
 }
@@ -15970,7 +15970,7 @@ function sdServiceBar({state,meta}) {
   const invalid=state.matches.filter(m=>m.resultInvalidated).length;
   const message=status.issue||meta?.recoveryNotice||(state.matches.some(m=>m.resultWarning)?`有比赛比分未满足完赛条件，已保留为进行中，请检查赛程与赛果。`:``);
   return (0,O.jsxs)(`div`,{className:`sd-service-bar ${message?`has-issue`:``}`,role:`status`,children:[
-    (0,O.jsxs)(`span`,{className:`sd-save-indicator`,children:[(0,O.jsx)(`i`,{}),status.pending?`正在保存 · ${status.pending} 项`:`已保存`]}),
+    (0,O.jsxs)(`span`,{className:`sd-save-indicator`,children:[(0,O.jsx)(`i`,{}),SDClient.failedDraft?`有未保存草稿`:status.pending?`正在保存 · ${status.pending} 项`:`已保存`]}),
     (0,O.jsx)(`span`,{children:`${state.teams.length} 支队伍 / ${state.matches.length} 场比赛`}),
     invalid>0&&(0,O.jsx)(`span`,{className:`warn`,children:`${invalid} 场晋级对阵已更新，请重新确认赛果`}),
     message&&(0,O.jsx)(`strong`,{children:message}),
@@ -16046,7 +16046,7 @@ function Wt({ state: e, setState: t, meta: n, connection: r }) {
                 children: [
                   (0, O.jsx)(`strong`, { children: `ScoreDeck` }),
                   (0, O.jsx)(`span`, {
-                    children: `导播工作台 · 2.18.11`,
+                    children: `导播工作台 · 2.18.12`,
                   }),
                 ],
               }),
@@ -17044,9 +17044,12 @@ function Yt({state:e,commit:t}){
   return l.createElement(sdFlowSchedule,{state:e,commit:t});
 }
 function Xt({ state: e, match: t, commit: n, onClose: r }) {
-  const editBase=(0,l.useRef)(structuredClone(e));
+  const [saveError,setSaveError]=(0,l.useState)(``),[saving,setSaving]=(0,l.useState)(false);
+  const resultBase=l.useRef({matchId:t.id,teamAId:t.teamAId,teamBId:t.teamBId,bestOf:t.bestOf,mapDetails:ee(e,t)});
+  const [resultDraft,setResultDraft]=l.useState(()=>({maps:ee(e,t),baseMaps:ee(e,t)}));
   let [i, a] = (0, l.useState)(0),
-    [o, s] = (0, l.useState)(() => ee(e, t)),
+    o=resultDraft.maps,
+    s=update=>setResultDraft(previous=>({...previous,maps:typeof update==='function'?update(previous.maps):update})),
     [c, u] = (0, l.useState)(t.mvp ?? null),
     d = v(e, t.teamAId),
     f = v(e, t.teamBId),
@@ -17082,26 +17085,9 @@ function Xt({ state: e, match: t, commit: n, onClose: r }) {
     },
     x = y ? ne(e, b, y.teamId, y.playerId) : null,
     S = () =>
-      SDClient.mutateFrom(editBase.current,(e) => {
-        let n = e.matches.find((e) => e.id === t.id);
-        if (!n) return e;
-        let r = o.map((e) => ({ map: e.map.trim() || `MAP`, a: e.a, b: e.b })),
-          i = te(o, n.bestOf);
-        return (
-          (n.mapDetails = o.map((e) => ({ ...e, map: e.map.trim() || `MAP` }))),
-          (n.mapScores = r),
-          (n.scoreA = i.a),
-          (n.scoreB = i.b),
-          ScoreDeckRules.normalizeMatch(n, {forceMaps:true, finishBo2:true}),
-          (n.mvp = y ? { teamId: y.teamId, playerId: y.playerId } : void 0),
-          n.teamAId &&
-            n.teamBId &&
-            o.slice(0, n.bestOf).some((e) => e.a !== null && e.b !== null) &&
-            (n.status = n.status === `tbd` ? `upcoming` : n.status),
-          ke(e),
-          e
-        );
-      }),
+      SDClient.saveResult({...resultBase.current,baseMapDetails:resultDraft.baseMaps,
+        mapDetails:o.map(e=>({...e,map:e.map.trim()||`MAP`})),
+        mvp:y?{teamId:y.teamId,playerId:y.playerId}:null}),
     re = (e, t) =>
       (0, O.jsxs)(`section`, {
         className: `map-roster`,
@@ -17154,23 +17140,23 @@ function Xt({ state: e, match: t, commit: n, onClose: r }) {
                   (0,O.jsx)(sdTextField, {
                     type: `number`,
                     min: `0`,
-                    value: n.kills,
+                    value: n.kills ?? ``,
                     onChange: (t) =>
-                      h(e, r, { kills: Math.max(0, Number(t.target.value)) }),
+                      h(e, r, { kills: t.target.value===``?null:Math.max(0, Number(t.target.value)) }),
                   }),
                   (0,O.jsx)(sdTextField, {
                     type: `number`,
                     min: `0`,
-                    value: n.deaths,
+                    value: n.deaths ?? ``,
                     onChange: (t) =>
-                      h(e, r, { deaths: Math.max(0, Number(t.target.value)) }),
+                      h(e, r, { deaths: t.target.value===``?null:Math.max(0, Number(t.target.value)) }),
                   }),
                   (0,O.jsx)(sdTextField, {
                     type: `number`,
                     min: `0`,
-                    value: n.assists,
+                    value: n.assists ?? ``,
                     onChange: (t) =>
-                      h(e, r, { assists: Math.max(0, Number(t.target.value)) }),
+                      h(e, r, { assists: t.target.value===``?null:Math.max(0, Number(t.target.value)) }),
                   }),
                   (0,O.jsx)(sdTextField, {
                     type: `number`,
@@ -17187,6 +17173,19 @@ function Xt({ state: e, match: t, commit: n, onClose: r }) {
           }),
         ],
       });
+  l.useEffect(()=>{
+    const base=resultBase.current;
+    if(base.matchId!==t.id||base.teamAId!==t.teamAId||base.teamBId!==t.teamBId||base.bestOf!==t.bestOf)return;
+    const latest=ee(e,t);
+    setResultDraft(previous=>{
+      const baseMaps=previous.baseMaps.slice();
+      const maps=previous.maps.map((map,index)=>{
+        if(JSON.stringify(map)!==JSON.stringify(previous.baseMaps[index]))return map;
+        baseMaps[index]=latest[index];return latest[index];
+      });
+      return {maps,baseMaps};
+    });
+  },[t.mapDetails,t.mapScores,t.id,t.teamAId,t.teamBId,t.bestOf]);
   return (0, O.jsx)(`div`, {
     className: `result-dialog-backdrop`,
     role: `presentation`,
@@ -17226,6 +17225,8 @@ function Xt({ state: e, match: t, commit: n, onClose: r }) {
             }),
           ],
         }),
+        (0,O.jsx)(sdServiceBar,{state:e,meta:SDClient.meta}),
+        saveError&&(0,O.jsx)(`p`,{role:`alert`,className:`hint`,children:`未保存：${saveError} 当前输入仍保留在窗口中，可直接重试保存。`}),
         (0, O.jsx)(`div`, {
           className: `map-detail-tabs`,
           children: o
@@ -17356,6 +17357,7 @@ function Xt({ state: e, match: t, commit: n, onClose: r }) {
               }),
           ],
         }),
+        (0,O.jsx)(sdGsiNotices,{state:e,match:t}),
         (0, O.jsxs)(`footer`, {
           children: [
             (0, O.jsx)(`button`, {
@@ -17365,16 +17367,22 @@ function Xt({ state: e, match: t, commit: n, onClose: r }) {
             }),
             (0, O.jsx)(`button`, {
               className: `button primary`,
-              onClick: () => {
+              disabled: saving,
+              onClick: async () => {
+                if(saving)return;
+                setSaveError(``);
+                setSaving(true);
+                try {
                 o.slice(0, t.bestOf).every(
                   (e) =>
                     e.teamA.filter((e) => e.starter).length === 5 &&
                     e.teamB.filter((e) => e.starter).length === 5,
                 )
-                  ? S().then(r).catch(error=>alert(`未保存：${error.message}`))
-                  : alert(`每张地图的双方阵容都必须点亮 5 名首发后才能保存`);
+                  ? await S().then(r)
+                  : setSaveError(`每张地图的双方阵容都必须点亮 5 名首发后才能保存`);
+                }catch(error){setSaveError(error.message);}finally{setSaving(false);}
               },
-              children: `保存完整赛果`,
+              children: saving?`正在保存…`:`保存完整赛果`,
             }),
           ],
         }),
@@ -19313,16 +19321,38 @@ function sdFlowAdaptive({content,children}){
  return h('div',{ref,className:'sfd-adaptive'},h('div',{className:'sfd-adaptive-inner',style:{width,height:actualHeight,transform:`translate(-50%,-50%) scale(${scale})`}},children));
 }
 
-const sdMaps=['dust2','mirage','inferno','nuke','ancient','anubis','overpass','train','vertigo'];
+const sdMaps=['dust2','mirage','inferno','nuke','ancient','anubis','overpass','train','vertigo','cache'];
 const sdMapKey=v=>String(v||'').toLowerCase().replace(/^.*\//,'').replace(/^de_/,'').replace(/[^a-z0-9]/g,'').replace(/^dustii$/,'dust2');
 const sdBPTemplate=(bo,first='A')=>({1:['A:ban','B:ban','A:ban','B:ban','A:ban','B:ban',':decider'],2:['A:ban','B:ban','A:ban','B:ban','A:pick','B:pick',':unused'],3:['A:ban','B:ban','A:pick','B:pick','A:ban','B:ban',':decider'],5:['A:ban','B:ban','A:pick','B:pick','A:pick','B:pick',':decider']}[bo]||[]).map(x=>{const [team,action]=x.split(':');return {team:first==='B'&&team?(team==='A'?'B':'A'):team,action,map:''};});
 const sdBPValid=m=>!!m&&m.bpBestOf===m?.bestOf&&(!m.bpTeams||JSON.stringify(m.bpTeams)===JSON.stringify([m.teamAId||'',m.teamBId||'']));
 const sdBPBase=m=>({bestOf:m.bestOf,bp:m.bp||[],bpFirstSide:m.bpFirstSide||'A',teamAId:m.teamAId,teamBId:m.teamBId});
 const sdBPInitial=m=>sdBPValid(m)&&Array.isArray(m.bp)?m.bp:sdBPTemplate(m.bestOf,m.bpFirstSide||'A');
+function sdParseBPText(text,state,m){
+ const clean=v=>String(v||'').normalize('NFKC').replace(/\s+/g,' ').trim();
+ const team=raw=>{const name=clean(raw),hits=['A','B'].filter(side=>{const t=state.teams.find(t=>t.id===m['team'+side+'Id']);return t&&[t.name,t.shortName].filter(Boolean).some(v=>clean(v)===name);});if(hits.length!==1)throw Error(`队名“${name}”无法唯一匹配本场队伍，请使用完整队名`);return hits[0];};
+ const steps=[],used=new Set();let last=null;
+ const side=(raw,line)=>{const match=/^(.+?)\s*(?:自动)?选择了\s*\(PICK\)\s*(CT|T)\s*阵营$/i.exec(raw);if(!match)throw Error(`第 ${line} 行选边格式无法识别`);if(!last||!['pick','decider'].includes(last.action))throw Error(`第 ${line} 行选边没有对应的已选地图`);if(last.sidePicker)throw Error(`第 ${line} 行重复设置选边`);last.sidePicker=team(match[1]);last.startSide=match[2].toUpperCase();};
+ const lines=String(text||'').split(/\r?\n/).map(clean).filter(Boolean);if(!lines.length)throw Error('请先粘贴 BP 文本');
+ lines.forEach((line,i)=>{
+  const match=/^(.+?)\s*(去除了|(?:自动)?选择了)\s*\((BAN|PICK)\)\s*.*?\((de_[a-z0-9_]+)\)\s*(.*)$/i.exec(line);
+  if(!match){side(line,i+1);return;}
+  const [,actor,verb,op,rawMap,tail]=match,map=sdMapKey(rawMap),ban=op.toUpperCase()==='BAN';
+  if((verb==='去除了')!==ban)throw Error(`第 ${i+1} 行动作与 BAN/PICK 不一致`);
+  if(!sdMaps.includes(map))throw Error(`第 ${i+1} 行地图不支持：${rawMap}`);if(used.has(map))throw Error(`第 ${i+1} 行重复地图：${rawMap}`);used.add(map);
+  const system=clean(actor)==='系统';if(system&&ban)throw Error('系统不能作为禁图队伍');
+  last={team:system?'':team(actor),action:system?(m.bestOf===2?'unused':'decider'):ban?'ban':'pick',map};steps.push(last);if(tail)side(tail,i+1);
+ });
+ const expected=sdBPTemplate(m.bestOf);if(steps.length!==expected.length)throw Error(`BO${m.bestOf} 需要完整 ${expected.length} 条地图禁选记录，当前 ${steps.length} 条`);
+ for(const action of ['ban','pick','decider','unused'])if(steps.filter(v=>v.action===action).length!==expected.filter(v=>v.action===action).length)throw Error(`禁选数量与 BO${m.bestOf} 不一致`);
+ if(steps.at(-1).action!==(m.bestOf===2?'unused':'decider'))throw Error('系统剩余地图必须位于最后一条');
+ return {steps,firstSide:steps.find(v=>v.team).team};
+}
 function sdMatchData({state,match:m,commit}){
  const h=l.createElement,[first,setFirst]=l.useState(m.bpFirstSide||'A'),[steps,setSteps]=l.useState(()=>sdBPInitial(m)),[dirty,setDirty]=l.useState(false),[message,setMessage]=l.useState(''),[gsi,setGsi]=l.useState(null),base=l.useRef(sdBPBase(m));
  l.useEffect(()=>{if(!dirty){setFirst(m.bpFirstSide||'A');setSteps(sdBPInitial(m));base.current=sdBPBase(m);}},[m.id,m.bestOf,m.bpFirstSide,m.teamAId,m.teamBId,JSON.stringify(m.bp),dirty]);
- const save=async()=>{try{await SDClient.request('/api/match-bp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matchId:m.id,steps,firstSide:first,base:base.current})});setDirty(false);setMessage('BP 与开局选边已保存，导播输出已同步');}catch(e){setMessage(e.message);}};
+ const [importText,setImportText]=l.useState(''),[preserveOrder,setPreserveOrder]=l.useState(m.bpOrder==='imported');
+ l.useEffect(()=>{if(!dirty)setPreserveOrder(m.bpOrder==='imported');},[m.id,m.bpOrder,dirty]);
+ const save=async()=>{try{await SDClient.request('/api/match-bp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matchId:m.id,steps,firstSide:first,preserveOrder,base:base.current})});setDirty(false);setMessage('BP 与开局选边已保存，导播输出已同步');}catch(e){setMessage(e.message);}};
  const update=fn=>Promise.resolve(commit(s=>{fn(s.matches.find(x=>x.id===m.id));return s;})).catch(e=>setMessage(e.message));
  const options=sdBPTemplate(m.bestOf,m.bpFirstSide||'A'),bpCards=(steps||options).map((s,i)=>h('label',{key:i},
   h('span',null,`${i+1} · ${s.team?state.teams.find(t=>t.id===m['team'+s.team+'Id'])?.shortName||s.team:'自动'} ${s.action.toUpperCase()}`),
@@ -19352,15 +19382,19 @@ function sdMatchData({state,match:m,commit}){
  return h('details',{className:'sd-match-data'},
   h('summary',null,`地图 BP · BO${m.bestOf} / GSI 当图数据`),
   h('p',null,'7 图池模板自动跟随 BO。手动选图并保存；空白步骤可稍后继续录入。BO2 为固定两图，最后一张不使用。'),
-  h('div',{className:'sf-actions sd-bp-order'},h('label',null,'BP 先手方',h('select',{'aria-label':'BP 先手方',value:first,onChange:e=>{const side=e.target.value;setFirst(side);setDirty(true);setSteps(old=>sdBPTemplate(m.bestOf,side).map((v,i)=>({...v,map:old?.[i]?.map||'',sidePicker:old?.[i]?.sidePicker||'',startSide:old?.[i]?.startSide||''})));}},...['A','B'].map(side=>h('option',{key:side,value:side},`${side} · ${state.teams.find(t=>t.id===m['team'+side+'Id'])?.name||'待定队伍'}`)))),h('span',null,`后手方：${state.teams.find(t=>t.id===m['team'+(first==='A'?'B':'A')+'Id'])?.name||'待定队伍'}`)),
-  h('small',null,'更换先手方会交换所有禁选步骤的队伍归属，保留已输入的地图。点击“保存 BP”生效。'),
+  h('details',null,h('summary',null,'格式化文本导入 BP'),
+   h('p',null,'粘贴完整禁选记录，队名须匹配本场全名或唯一简称。按原文保留 BAN/PICK 顺序；系统 PICK 为剩余地图。选边可跟在地图后或独立下一行。'),
+   h('textarea',{'aria-label':'BP 格式化文本',rows:8,style:{width:'100%',boxSizing:'border-box'},value:importText,onChange:e=>setImportText(e.target.value),placeholder:'队伍名 去除了(BAN) 阿努比斯(de_anubis)\n系统 自动选择了(PICK) 荒漠迷城(de_mirage) 队伍名 自动选择了(PICK) CT 阵营'}),
+   h(sdFlowButton,{onClick:()=>{try{const parsed=sdParseBPText(importText,state,m);setSteps(parsed.steps);setFirst(parsed.firstSide);setPreserveOrder(true);setDirty(true);setMessage('已解析，请核对下方队伍、地图和 CT/T 后点击“保存 BP”');}catch(e){setMessage(e.message);}}},'解析并填入 BP')),
+  h('div',{className:'sf-actions sd-bp-order'},h('label',null,'BP 先手方',h('select',{'aria-label':'BP 先手方',value:first,onChange:e=>{const side=e.target.value;setFirst(side);setPreserveOrder(false);setDirty(true);setSteps(old=>sdBPTemplate(m.bestOf,side).map((v,i)=>({...v,map:old?.[i]?.map||'',sidePicker:old?.[i]?.sidePicker||'',startSide:old?.[i]?.startSide||''})));}},...['A','B'].map(side=>h('option',{key:side,value:side},`${side} · ${state.teams.find(t=>t.id===m['team'+side+'Id'])?.name||'待定队伍'}`)))),h('span',null,`后手方：${state.teams.find(t=>t.id===m['team'+(first==='A'?'B':'A')+'Id'])?.name||'待定队伍'}`)),
+  h('small',null,'更换先手方会恢复默认模板顺序和队伍归属，保留已输入的地图。点击“保存 BP”生效。'),
   h('div',{className:'sd-bp-grid'},...bpCards),
   h('div',{className:'sd-side-settings'},h('b',null,'逐图开局选边'),h('small',null,'记录选边队伍与其选择的 CT/T，另一队自动取相反阵营。DECIDER 的选边结果同样手工录入；中场换边不会改写此记录。'),...sideRows),
   h('div',{className:'sf-actions'},h(sdFlowButton,{primary:true,onClick:save,disabled:!dirty},'保存 BP'),
-   h('label',null,h('input',{type:'checkbox',checked:m.gsiEnabled!==false,onChange:e=>update(x=>x.gsiEnabled=e.target.checked)}),'GSI 自动填写逐图 KDA'),
+   h('label',null,h('input',{type:'checkbox',checked:m.gsiEnabled!==false,onChange:e=>update(x=>x.gsiEnabled=e.target.checked)}),'GSI 自动采集战绩 / 全场结束后录入当图'),
    h(sdFlowButton,{onClick:async()=>{try{setGsi(await(await fetch('/api/match-data')).json());}catch(e){setMessage(e.message);}}},'读取 GSI 选手 / 绑定')),
-  h('small',null,m.gsiUpdatedAt?`最近采集 ${new Date(m.gsiUpdatedAt).toLocaleTimeString()} · 地图 ${(m.currentMapIndex||0)+1} · 换边后按选手身份追踪`:'将本场设为主对阵，接入观察者 GSI；选手同名会自动匹配，也可手动绑定 SteamID。'),
-  bindings&&h('div',{className:'sd-bindings'},bindings),h(sdStoredStats,{state,match:m}),message&&h('p',{role:'status'},message));
+  h('small',null,m.gsiUpdatedAt?`最近采集 ${new Date(m.gsiUpdatedAt).toLocaleTimeString()} · 地图 ${(m.currentMapIndex||0)+1} · 换边后按选手身份追踪`:'将本场设为主对阵，接入观察者 GSI；按“队名 + 空格 + ID”匹配；手动录入的地图优先保留。'),
+  bindings&&h('div',{className:'sd-bindings'},bindings),h(sdStoredStats,{state,match:m}),message&&h('p',{role:'status'},message),h(sdGsiNotices,{state,match:m}));
 }
 
 function sdStoredStats({state,match:m}){
@@ -19373,10 +19407,18 @@ function sdStoredStats({state,match:m}){
   return h('details',{key:i},h('summary',null,`${d.map||'MAP '+(i+1)} · ${d.a??'—'} : ${d.b??'—'}`),...tables);
  }));
 }
+function sdGsiNotices({state,match:m}){
+ const h=l.createElement,items=(m?.mapDetails||[]).slice(0,m?.bestOf||0).flatMap((d,i)=>(d.gsiNotices||[]).map(n=>({...n,map:d.map||`MAP ${i+1}`,index:i})));
+ if(!items.length)return null;
+ return h('section',{className:'sd-gsi-notices',role:'status'},h('h3',null,'GSI 战绩核对'),...items.map((n,i)=>{
+  const team=state.teams.find(t=>t.id===m['team'+n.side+'Id'])?.name||n.side;
+  return h('p',{key:i},`地图 ${n.index+1} · ${n.map} · ${team}：${n.name}（${n.id}） · K/D/A ${n.kills??'—'}/${n.deaths??'—'}/${n.assists??'—'} · ADR ${n.adr??'—'} · `+(n.type==='inferred'?`已按首发与排除法录入 ${n.playerId}，请核对。`:'ID 无法唯一匹配，自动录入位置留空，请人工录入。'));
+ }));
+}
 function sdMapStats({state}){
  const h=l.createElement,m=ScoreDeckFlow.enabled(state)?ScoreDeckDisplay.primary(state):state.matches.find(m=>m.id===state.selectedMatchId),index=Math.max(0,Math.min((m?.bestOf||1)-1,Number(state.statsMapIndex??m?.currentMapIndex)||0)),d=m?.mapDetails?.[index]||{},map=m?.mapScores?.[index]||{},teams=['A','B'].map(side=>state.teams.find(t=>t.id===m?.['team'+side+'Id'])||{}),name=d.map||map.map||'MAP',score=[d.a??map.a??'—',d.b??map.b??'—'];
- const table=(side,i)=>{const rows=(d['team'+side]||teams[i].players?.map((p,j)=>({playerId:p.id,starter:p.starter??j<5}))||[]).filter(p=>p.starter).slice(0,5),cols=i?['PLAYER','K','D','A','ADR']:['K','D','A','ADR','PLAYER'];return h('section',{className:'sd-stats-team'},h(sdFlowLogo,{team:teams[i]}),h('h2',null,teams[i].name||'等待队伍'),h('table',null,h('thead',null,h('tr',null,...cols.map(v=>h('th',{key:v},v)))),h('tbody',null,...rows.map(p=>{const stat=[p.kills??'—',p.deaths??'—',p.assists??'—',Number.isFinite(p.adr)?Math.round(p.adr):'—'],values=i?[p.playerId,...stat]:[...stat,p.playerId];return h('tr',{key:p.playerId},...values.map((v,j)=>h('td',{key:j},v)));}))),!rows.length&&h('p',null,'等待选手数据'));};
- return h('section',{className:'scene sd-map-stats',style:{backgroundImage:`linear-gradient(110deg,rgba(8,19,102,.9),rgba(8,12,36,.91)),url('/assets/maps/${sdMapKey(name)}.png')`}},h('header',null,h('span',null,state.tournament.name),h('small',null,'MAP '+(index+1)+' / '+(m?.bestOf||1)+' · '+(m?.gsiPhase==='gameover'?'FINAL':'MATCH STATS'))),h('h1',null,name.replace(/^de_/,'').toUpperCase()),h('div',{className:'sd-stats-score'},h('b',{className:Number(score[0])>Number(score[1])?'winner':''},score[0]),h('span',null,'—'),h('b',{className:Number(score[1])>Number(score[0])?'winner':''},score[1])),h('div',{className:'sd-stats-tables'},table('A',0),table('B',1)),h('footer',null,h('span',null,m?.round||'当图战绩'),h('span',null,'K 击杀 · D 死亡 · A 助攻 · ADR 无有效数据时显示 —')));
+ const table=(side,i)=>{const rows=(d['team'+side]||teams[i].players?.map((p,j)=>({playerId:p.id,starter:p.starter??j<5}))||[]).filter(p=>p.starter).slice(0,5),cols=i?['PLAYER','K','D','A','ADR']:['K','D','A','ADR','PLAYER'];return h('section',{className:'sd-stats-team'},h(sdFlowLogo,{team:teams[i]}),h('h2',null,teams[i].name||''),h('table',null,h('thead',null,h('tr',null,...cols.map(v=>h('th',{key:v},v)))),h('tbody',null,...rows.map(p=>{const stat=[p.kills??'—',p.deaths??'—',p.assists??'—',Number.isFinite(p.adr)?Math.round(p.adr):'—'],values=i?[p.playerId,...stat]:[...stat,p.playerId];return h('tr',{key:p.playerId},...values.map((v,j)=>h('td',{key:j},v)));}))));};
+ return h('section',{className:'scene sd-map-stats',style:{backgroundImage:`linear-gradient(110deg,rgba(8,19,102,.9),rgba(8,12,36,.91)),url('/assets/maps/${sdMapKey(name)}.png')`}},h('header',null,h('span',null,state.tournament.name),h('small',null,'MAP '+(index+1)+' / '+(m?.bestOf||1)+' · '+(d.gsiPhase==='gameover'?'FINAL':'MATCH STATS'))),h('h1',null,name.replace(/^de_/,'').toUpperCase()),h('div',{className:'sd-stats-score'},h('b',{className:Number(score[0])>Number(score[1])?'winner':''},score[0]),h('span',null,'—'),h('b',{className:Number(score[1])>Number(score[0])?'winner':''},score[1])),h('div',{className:'sd-stats-tables'},table('A',0),table('B',1)),h('footer',null,h('span',null,m?.round||'当图战绩')));
 }
 
 function sdStatsControls({state,commit}){const h=l.createElement,m=ScoreDeckFlow.enabled(state)?ScoreDeckDisplay.primary(state):state.matches.find(m=>m.id===state.selectedMatchId);return h('div',{className:'sfd-controls'},h(sdFlowSelect,{label:'当图战绩 · 展示地图',value:state.statsMapIndex==null?'':String(state.statsMapIndex),options:[['','跟随 GSI 当前地图'],...Array.from({length:m?.bestOf||1},(_,i)=>[String(i),`地图 ${i+1} · ${m?.mapScores?.[i]?.map||'待定'}`])],onChange:v=>commit(s=>{s.statsMapIndex=v===''?null:Number(v);return s;})}),h('a',{href:'/highlights',target:'_blank',rel:'noopener',className:'button secondary'},'编辑半场 / 全场精选画面'));}

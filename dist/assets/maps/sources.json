@@ -52,5 +52,11 @@
     "source": "https://raw.githubusercontent.com/MurkyYT/cs2-map-icons/main/images/thumbs/de_vertigo_1_png.png",
     "sha256": "f63d0fdfef7825449f1f5ed3688a37d7845edc63c020a949834157447f119273",
     "rights": "Valve Corporation; CS2 game depot asset. Vector layout created for ScoreDeck."
+  },
+  {
+    "map": "cache",
+    "source": "https://raw.githubusercontent.com/MurkyYT/cs2-map-icons/main/images/thumbs/de_cache_1_png.png",
+    "sha256": "9fa28c1d41fad41374f70fb33c9c38919e5558ca56ee4fc6f027ec7e74e5bce1",
+    "rights": "Valve Corporation; CS2 game depot asset. Vector layout created for ScoreDeck."
   }
 ]

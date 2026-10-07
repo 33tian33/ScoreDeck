@@ -61,7 +61,7 @@ class ConsoleLink extends EventEmitter {
     for(const line of lines){
       this.emit('line',line);
       if(line.trim()===this.probe){this.ready=true;this.emit('verified');}
-      if(/unknown command|not allowed|cannot execute|cheat.*(enabled|disabled)|version mismatch/i.test(line))this.emit('commandError',line.slice(0,250));
+      if(/unknown command|not allowed|cannot execute|can't (?:use|execute)|cheat.*(enabled|disabled)|requires? sv_cheats|version mismatch/i.test(line))this.emit('commandError',line.slice(0,250));
     }
   }
   write(command,probe=false){
@@ -189,7 +189,10 @@ class GrenadeTracker {
     const returnTarget=previous?.returnId?{returnId:previous.returnId,returnName:previous.returnName}:player?{returnId:player.entity_id,returnName:player.name}:{};
     // Stop the timer and discard any queued utility camera before the static command.
     this.pendingReturn=null;this.stop('已切换固定机位',false);this.cameraSelection=null;
-    const command='spec_autodirector 0; spec_mode 6; spec_goto '+preset.pose.join(' ');
+    // spec_goto selects the camera itself (as in CSDM's CS2 camera actions).
+    // Avoid an extra spectator-mode transition before positioning. Live GOTV
+    // behavior still needs verification against the user's running CS2 build.
+    const command='spec_autodirector 0; spec_goto '+preset.pose.join(' ');
     this.link.write(command);this.lastCommand=command;
     this.cameraSelection={id:preset.id,...returnTarget};
     this.message='已发送机位：'+current.mapLabel+' · '+preset.label;
@@ -256,7 +259,7 @@ class GrenadeTracker {
     this.cameraSelection=null;this.pendingReturn=null;this.returnSelection=null;this.heartbeat();this.lastTarget=chosen.target;this.lastSend=0;this.lastCamera=null;
     const g=chosen.target;
     this.session={id:g.id,kind:type,owner:g.owner,returnId:player.entity_id,returnName:player.name,started:this.clock(),reason:chosen.reason,direction:norm([g.velocity?.[0]||0,g.velocity?.[1]||0,0])||norm([g.position[0]-player.position[0],g.position[1]-player.position[1],0])||[1,0,0]};
-    try{this.link.clearCamera();this.link.write('spec_autodirector 0; spec_mode '+this.config.freeMode);this.message='追踪'+TYPES[type]+' · '+chosen.reason;this.tick(true);}catch(e){this.session=null;throw e;}
+    try{this.link.clearCamera();this.link.write('spec_autodirector 0');this.message='追踪'+TYPES[type]+' · '+chosen.reason;this.tick(true);}catch(e){this.session=null;throw e;}
     return this.status();
   }
   tick(force=false){

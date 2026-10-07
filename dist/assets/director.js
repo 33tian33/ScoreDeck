@@ -40,40 +40,12 @@ const tracker=async(action,body={})=>{
  catch(e){if(revision===trackerRevision)leaseActive=previousLease;throw e;}finally{trackerPending--;}
 };
 function clipTime(ms){const seconds=Math.floor(Math.max(0,Number(ms)||0)/1000);return '会话 '+[Math.floor(seconds/3600),Math.floor(seconds/60)%60,seconds%60].map(n=>String(n).padStart(2,'0')).join(':');}
-let cameraKey='',cameraDownKey=null;
-function renderCameras(t={}){
- const c=t.cameras||{},presets=c.presets||[],map=c.mapName||'',root=$('#camera-buttons');
- const nextKey=JSON.stringify([map,c.mapEpoch,presets.map(p=>p.id)]);
- if(nextKey!==cameraKey){
-  cameraKey=nextKey;root.replaceChildren();
-  for(const p of presets){
-   const b=document.createElement('button');b.type='button';b.dataset.cameraId=p.id;
-   b.dataset.cameraKey=nextKey+':'+p.id;b.textContent=p.label;b.title=p.id+' · '+p.label;
-   const payload={id:p.id,mapName:map,mapEpoch:c.mapEpoch};
-   b.onclick=e=>{if(e.detail!==0&&cameraDownKey!==b.dataset.cameraKey)return;cameraDownKey=null;void act(()=>tracker('camera',payload));};
-   root.append(b);
-  }
- }
- $('#camera-map').textContent=c.mapLabel||(!map?'等待 GSI':'未配置机位');
- $('#camera-map').title=map;
- $('#camera-empty').hidden=presets.length>0;
- $('#camera-empty').textContent=!map?'连接 GSI 后自动显示当前地图的机位':'当前地图没有已选机位';
- root.querySelectorAll('button').forEach(b=>{
-  b.disabled=busy||!t.verified||!c.fresh;
-  b.classList.toggle('active',b.dataset.cameraId===c.lastSentId);
-  b.setAttribute('aria-pressed',String(b.dataset.cameraId===c.lastSentId));
- });
-}
-document.addEventListener('pointerdown',e=>{cameraDownKey=e.target.closest('[data-camera-id]')?.dataset.cameraKey||null;});
 function render(){if(!state)return;const t=state.tracker||{},v=state.voice,c=t.controls||{};
 renderReplay();
-renderCameras(t);
 $('#connection').textContent=t.verified?'CS2 已连接':'未连接 CS2';$('#connection').classList.toggle('online',!!t.verified);
 for(const [key,value] of [['xray',c.xray],['ui',c.uiHidden]]){const button=$('#'+key);button.querySelector('b').textContent=value==null?'未知':key==='ui'?(value?'隐藏含击杀提示':'完整'):(value?'开':'关');button.disabled=busy||!t.verified||c.busy;button.classList.toggle('active',value===true);}
 $('#connect').textContent=t.verified?'已连接':'连接 CS2';$('#connect').disabled=busy||!!t.active||!!t.verified;
-$('#observed').textContent=t.fresh?(t.observed?.name||'请观战存活选手'):'等待 GOTV GSI';$('#return').disabled=!t.returning&&(busy||(!t.active&&!t.cameras?.canReturn));$('#return').textContent=t.returning?'取消自动返回':'返回选手';
-$$('[data-type]').forEach(b=>{const n=t.counts?.[b.dataset.type]||0;b.querySelector('small').textContent=String(n);b.classList.toggle('active',t.active?.kind===b.dataset.type);b.disabled=busy||!t.verified||!t.fresh||!t.observed||n===0||!!t.active;});
-$('#track-status').textContent=t.error||c.error||t.message||'优先当前选手 2 秒内的道具；否则选择附近有效目标';$('#tracking-dot').className=t.active?'live':'';
+$('#control-status').textContent=c.error||t.error||'';
 if(session!==v?.sessionId){stopPreview();session=v?.sessionId;$$('.clips').forEach(e=>{e.replaceChildren();e.scrollLeft=0;});}
 for(let i=0;i<2;i++)lane(i,v?.channels?.[i]);
 $('#start-voice').hidden=!!v;$('#start-voice').disabled=busy;$('#voice-stop').disabled=busy||!v;$('#preview-stop').disabled=!previewId;
@@ -91,10 +63,9 @@ el._clip=clip;el.querySelector('small').textContent=clipTime(clip.startMs)+' · 
 for(const e of existing.values())e.remove();if(!clips.length){const e=document.createElement('p');e.className='empty';e.textContent=state.voice?'等待符合条件的音频片段…':'启动 VoiceBridge，等待音频片段';strip.append(e);}
 if(scrolled&&anchorId){const e=[...strip.children].find(e=>e.dataset.id===anchorId);if(e)strip.scrollLeft=e.offsetLeft-strip.offsetLeft-anchorOffset;}else if(!scrolled)strip.scrollLeft=0;
 }
-async function poll(){if(polling)return;polling=true;const revision=trackerRevision;try{const next=await request('state');if(revision!==trackerRevision||trackerPending)return;state=next;leaseActive=!!state.tracker?.active;render();}catch(e){if(revision!==trackerRevision||trackerPending)return;leaseActive=false;state=null;stopPreview();renderReplay();renderCameras();$$('.game button,.clip button').forEach(b=>b.disabled=true);$('#connection').textContent='服务已断开';$('#voice-status').textContent=e.message;}finally{polling=false;}}
+async function poll(){if(polling)return;polling=true;const revision=trackerRevision;try{const next=await request('state');if(revision!==trackerRevision||trackerPending)return;state=next;leaseActive=!!state.tracker?.active;render();}catch(e){if(revision!==trackerRevision||trackerPending)return;leaseActive=false;state=null;stopPreview();renderReplay();$$('.game button,#connect,.clip button').forEach(b=>b.disabled=true);$('#connection').textContent='服务已断开';$('#voice-status').textContent=e.message;}finally{polling=false;}}
 $$('[data-toggle]').forEach(b=>b.onclick=()=>act(()=>tracker('toggle',{key:b.dataset.toggle})));
-$$('[data-type]').forEach(b=>b.onclick=()=>act(()=>tracker('start',{type:b.dataset.type})));
-$('#connect').onclick=()=>act(()=>tracker('connect'));$('#return').onclick=()=>state?.tracker?.returning?void tracker('cancel-return').catch(e=>tell(e.message)):act(()=>tracker('stop'));
+$('#connect').onclick=()=>act(()=>tracker('connect'));
 $$('[data-window]').forEach(b=>b.onclick=()=>act(async()=>{if(b.dataset.window==='close'){await tracker('stop').catch(()=>{});stopPreview();}try{await request('window',{action:b.dataset.window});}catch(e){if(b.dataset.window==='settings')window.open('/director-settings.html');else if(b.dataset.window==='dashboard')window.open('/');else throw e;}}));
 $('#start-voice').onclick=()=>act(()=>request('voice/start',{}));$('#preview-stop').onclick=()=>{stopPreview();render();};$('#voice-stop').onclick=()=>act(async()=>{stopPreview();await request('voice/stop',{});});
 $$('[data-latest]').forEach(b=>b.onclick=()=>{b.closest('.lane').querySelector('.clips').scrollLeft=0;});
@@ -102,6 +73,7 @@ document.addEventListener('pointerdown',e=>{const b=e.target.closest('[data-clip
 document.addEventListener('click',e=>{const b=e.target.closest('[data-clip-action]');if(!b)return;const el=b.closest('.clip'),clip=el._clip;if(e.detail!==0&&downId!==clip.id+':'+b.dataset.clipAction)return;downId=null;act(async()=>{if(b.dataset.clipAction==='push'){stopPreview();await request('voice/play',{channelId:clip.channelId,segmentId:clip.id});}else if(previewId===clip.id)stopPreview();else{stopPreview();if(!/^\/clips\/[a-f0-9-]{36}\/[a-f0-9-]{36}\.wav$/.test(clip.audioUrl))throw Error('音频地址无效');audio.src='/api/director'+clip.audioUrl;await audio.play();previewId=clip.id;}});});
 audio.onended=()=>{previewId='';render();};audio.onerror=()=>{previewId='';tell('预听失败，音频可能已过期');render();};
 let heartBusy=false;setInterval(async()=>{if(heartBusy||!leaseActive)return;heartBusy=true;try{await tracker('heartbeat');}catch{}finally{heartBusy=false;}},700);
-setInterval(()=>void poll(),500);let refreshBusy=false;setInterval(async()=>{if(refreshBusy||busy||!state?.tracker?.verified)return;refreshBusy=true;try{await tracker('refresh-controls');}catch{}finally{refreshBusy=false;}},4000);
+// Poll cached service state only; CS2 control queries run in response to clicks.
+setInterval(()=>void poll(),500);
 window.addEventListener('pagehide',()=>{stopPreview();if(meta&&state?.tracker?.active)fetch('/api/director/tracker/stop',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json','X-ScoreDeck-Key':meta.controlKey,'X-ScoreDeck-Epoch':meta.serverEpoch,'X-ScoreDeck-Control-Epoch':meta.controlEpoch},body:'{}'}).catch(()=>{});});
 void poll();})();

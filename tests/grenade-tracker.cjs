@@ -6,6 +6,19 @@ const {GrenadeTracker,ConsoleLink,active,kind,packet}=require('../radarhud/grena
 class Fake extends EventEmitter {constructor(){super();this.ready=true;this.connected=true;this.commands=[];}write(s){this.commands.push(s);}camera(s){this.write(s);}clearCamera(){}close(){this.ready=false;this.emit('offline');}}
 function setup(){let now=1000;const link=new Fake();const tracker=new GrenadeTracker({link,clock:()=>now,timers:false});const players=[{entity_id:'76561198000000001',name:'Alpha',observer_slot:1,position:[0,0,0],state:{health:100}},{entity_id:'76561198000000002',name:'Beta',observer_slot:2,position:[20,0,0],state:{health:100}}];const data=gs=>({map:{name:'de_nuke',round:1,phase:'live'},round:{phase:'live'},player:{steamid:players[0].entity_id,activity:'playing'},players,grenades:gs});return {tracker,link,players,step(ms,gs){now+=ms;tracker.ingest(data(gs));},now:()=>now,advance(ms){now+=ms;},data};}
 const grenade=(id,type,owner='76561198000000002',position=[10,0,0],extra={})=>({entity_id:id,type,owner,position,velocity:[100,0,0],effect_time:null,...extra});
+test('utility camera uses direct CS2 positioning even with a saved legacy free mode',()=>{
+ const t=setup();t.tracker.configure({freeMode:6});t.step(0,[]);t.step(50,[grenade('g','frag')]);t.tracker.start('frag');
+ assert.ok(t.link.commands.some(c=>c.startsWith('spec_goto ')));
+ assert.ok(t.link.commands.every(c=>!c.includes('spec_mode')));
+});
+test('console rejection stops an active camera instead of continuing to send poses',()=>{
+ for(const error of ["Can't use cheat cvar spec_goto in multiplayer",'Cannot execute spec_goto','Command requires sv_cheats']){
+  const t=setup();t.step(0,[]);t.step(50,[grenade('g','frag')]);t.tracker.start('frag');
+  const parser=new ConsoleLink();parser.on('commandError',line=>t.link.emit('commandError',line));parser.consume(error+'\n');
+  const count=t.link.commands.length;t.advance(20);t.tracker.tick(true);
+  assert.equal(t.tracker.session,null);assert.equal(t.link.commands.length,count);assert.match(t.tracker.message,/拒绝/);
+ }
+});
 test('four independent types prioritize observed player, then nearest in 3D',()=>{
  for(const type of ['flashbang','smoke','frag','firebomb']){const t=setup();t.step(0,[]);const a=grenade('own',type,t.players[0].entity_id,[900,0,0]),b=grenade('near',type);t.step(50,[a,b,grenade('other','decoy',null,[0,0,0])]);assert.equal(t.tracker.select(type,t.players[0]).target.id,'own');assert.match(t.tracker.select(type,t.players[0]).reason,/2 秒/);
  for(let i=0;i<5;i++)t.step(450,[a,b]);assert.equal(t.tracker.select(type,t.players[0]).target.id,'near');}

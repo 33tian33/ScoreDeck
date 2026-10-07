@@ -12686,9 +12686,9 @@ function x(e, t, n) {
   return {
     ...n, playerId: e,
     starter: typeof n?.starter == `boolean` ? n.starter : t,
-    kills: b(n?.kills),
-    deaths: b(n?.deaths),
-    assists: b(n?.assists),
+    kills: n?.kills==null||n?.kills===``?null:b(n.kills),
+    deaths: n?.deaths==null||n?.deaths===``?null:b(n.deaths),
+    assists: n?.assists==null||n?.assists===``?null:b(n.assists),
     rating: n?.rating===null||n?.rating===undefined||n?.rating===``?null:b(n.rating),
   };
 }
@@ -15970,7 +15970,7 @@ function sdServiceBar({state,meta}) {
   const invalid=state.matches.filter(m=>m.resultInvalidated).length;
   const message=status.issue||meta?.recoveryNotice||(state.matches.some(m=>m.resultWarning)?`有比赛比分未满足完赛条件，已保留为进行中，请检查赛程与赛果。`:``);
   return (0,O.jsxs)(`div`,{className:`sd-service-bar ${message?`has-issue`:``}`,role:`status`,children:[
-    (0,O.jsxs)(`span`,{className:`sd-save-indicator`,children:[(0,O.jsx)(`i`,{}),status.pending?`正在保存 · ${status.pending} 项`:`已保存`]}),
+    (0,O.jsxs)(`span`,{className:`sd-save-indicator`,children:[(0,O.jsx)(`i`,{}),SDClient.failedDraft?`有未保存草稿`:status.pending?`正在保存 · ${status.pending} 项`:`已保存`]}),
     (0,O.jsx)(`span`,{children:`${state.teams.length} 支队伍 / ${state.matches.length} 场比赛`}),
     invalid>0&&(0,O.jsx)(`span`,{className:`warn`,children:`${invalid} 场晋级对阵已更新，请重新确认赛果`}),
     message&&(0,O.jsx)(`strong`,{children:message}),
@@ -16046,7 +16046,7 @@ function Wt({ state: e, setState: t, meta: n, connection: r }) {
                 children: [
                   (0, O.jsx)(`strong`, { children: `ScoreDeck` }),
                   (0, O.jsx)(`span`, {
-                    children: `导播工作台 · 2.18.11`,
+                    children: `导播工作台 · 2.18.12`,
                   }),
                 ],
               }),
@@ -17044,9 +17044,12 @@ function Yt({state:e,commit:t}){
   return l.createElement(sdFlowSchedule,{state:e,commit:t});
 }
 function Xt({ state: e, match: t, commit: n, onClose: r }) {
-  const editBase=(0,l.useRef)(structuredClone(e));
+  const [saveError,setSaveError]=(0,l.useState)(``),[saving,setSaving]=(0,l.useState)(false);
+  const resultBase=l.useRef({matchId:t.id,teamAId:t.teamAId,teamBId:t.teamBId,bestOf:t.bestOf,mapDetails:ee(e,t)});
+  const [resultDraft,setResultDraft]=l.useState(()=>({maps:ee(e,t),baseMaps:ee(e,t)}));
   let [i, a] = (0, l.useState)(0),
-    [o, s] = (0, l.useState)(() => ee(e, t)),
+    o=resultDraft.maps,
+    s=update=>setResultDraft(previous=>({...previous,maps:typeof update==='function'?update(previous.maps):update})),
     [c, u] = (0, l.useState)(t.mvp ?? null),
     d = v(e, t.teamAId),
     f = v(e, t.teamBId),
@@ -17082,26 +17085,9 @@ function Xt({ state: e, match: t, commit: n, onClose: r }) {
     },
     x = y ? ne(e, b, y.teamId, y.playerId) : null,
     S = () =>
-      SDClient.mutateFrom(editBase.current,(e) => {
-        let n = e.matches.find((e) => e.id === t.id);
-        if (!n) return e;
-        let r = o.map((e) => ({ map: e.map.trim() || `MAP`, a: e.a, b: e.b })),
-          i = te(o, n.bestOf);
-        return (
-          (n.mapDetails = o.map((e) => ({ ...e, map: e.map.trim() || `MAP` }))),
-          (n.mapScores = r),
-          (n.scoreA = i.a),
-          (n.scoreB = i.b),
-          ScoreDeckRules.normalizeMatch(n, {forceMaps:true, finishBo2:true}),
-          (n.mvp = y ? { teamId: y.teamId, playerId: y.playerId } : void 0),
-          n.teamAId &&
-            n.teamBId &&
-            o.slice(0, n.bestOf).some((e) => e.a !== null && e.b !== null) &&
-            (n.status = n.status === `tbd` ? `upcoming` : n.status),
-          ke(e),
-          e
-        );
-      }),
+      SDClient.saveResult({...resultBase.current,baseMapDetails:resultDraft.baseMaps,
+        mapDetails:o.map(e=>({...e,map:e.map.trim()||`MAP`})),
+        mvp:y?{teamId:y.teamId,playerId:y.playerId}:null}),
     re = (e, t) =>
       (0, O.jsxs)(`section`, {
         className: `map-roster`,
@@ -17154,23 +17140,23 @@ function Xt({ state: e, match: t, commit: n, onClose: r }) {
                   (0,O.jsx)(sdTextField, {
                     type: `number`,
                     min: `0`,
-                    value: n.kills,
+                    value: n.kills ?? ``,
                     onChange: (t) =>
-                      h(e, r, { kills: Math.max(0, Number(t.target.value)) }),
+                      h(e, r, { kills: t.target.value===``?null:Math.max(0, Number(t.target.value)) }),
                   }),
                   (0,O.jsx)(sdTextField, {
                     type: `number`,
                     min: `0`,
-                    value: n.deaths,
+                    value: n.deaths ?? ``,
                     onChange: (t) =>
-                      h(e, r, { deaths: Math.max(0, Number(t.target.value)) }),
+                      h(e, r, { deaths: t.target.value===``?null:Math.max(0, Number(t.target.value)) }),
                   }),
                   (0,O.jsx)(sdTextField, {
                     type: `number`,
                     min: `0`,
-                    value: n.assists,
+                    value: n.assists ?? ``,
                     onChange: (t) =>
-                      h(e, r, { assists: Math.max(0, Number(t.target.value)) }),
+                      h(e, r, { assists: t.target.value===``?null:Math.max(0, Number(t.target.value)) }),
                   }),
                   (0,O.jsx)(sdTextField, {
                     type: `number`,
@@ -17187,6 +17173,19 @@ function Xt({ state: e, match: t, commit: n, onClose: r }) {
           }),
         ],
       });
+  l.useEffect(()=>{
+    const base=resultBase.current;
+    if(base.matchId!==t.id||base.teamAId!==t.teamAId||base.teamBId!==t.teamBId||base.bestOf!==t.bestOf)return;
+    const latest=ee(e,t);
+    setResultDraft(previous=>{
+      const baseMaps=previous.baseMaps.slice();
+      const maps=previous.maps.map((map,index)=>{
+        if(JSON.stringify(map)!==JSON.stringify(previous.baseMaps[index]))return map;
+        baseMaps[index]=latest[index];return latest[index];
+      });
+      return {maps,baseMaps};
+    });
+  },[t.mapDetails,t.mapScores,t.id,t.teamAId,t.teamBId,t.bestOf]);
   return (0, O.jsx)(`div`, {
     className: `result-dialog-backdrop`,
     role: `presentation`,
@@ -17226,6 +17225,8 @@ function Xt({ state: e, match: t, commit: n, onClose: r }) {
             }),
           ],
         }),
+        (0,O.jsx)(sdServiceBar,{state:e,meta:SDClient.meta}),
+        saveError&&(0,O.jsx)(`p`,{role:`alert`,className:`hint`,children:`未保存：${saveError} 当前输入仍保留在窗口中，可直接重试保存。`}),
         (0, O.jsx)(`div`, {
           className: `map-detail-tabs`,
           children: o
@@ -17356,6 +17357,7 @@ function Xt({ state: e, match: t, commit: n, onClose: r }) {
               }),
           ],
         }),
+        (0,O.jsx)(sdGsiNotices,{state:e,match:t}),
         (0, O.jsxs)(`footer`, {
           children: [
             (0, O.jsx)(`button`, {
@@ -17365,16 +17367,22 @@ function Xt({ state: e, match: t, commit: n, onClose: r }) {
             }),
             (0, O.jsx)(`button`, {
               className: `button primary`,
-              onClick: () => {
+              disabled: saving,
+              onClick: async () => {
+                if(saving)return;
+                setSaveError(``);
+                setSaving(true);
+                try {
                 o.slice(0, t.bestOf).every(
                   (e) =>
                     e.teamA.filter((e) => e.starter).length === 5 &&
                     e.teamB.filter((e) => e.starter).length === 5,
                 )
-                  ? S().then(r).catch(error=>alert(`未保存：${error.message}`))
-                  : alert(`每张地图的双方阵容都必须点亮 5 名首发后才能保存`);
+                  ? await S().then(r)
+                  : setSaveError(`每张地图的双方阵容都必须点亮 5 名首发后才能保存`);
+                }catch(error){setSaveError(error.message);}finally{setSaving(false);}
               },
-              children: `保存完整赛果`,
+              children: saving?`正在保存…`:`保存完整赛果`,
             }),
           ],
         }),

@@ -9,7 +9,9 @@
 - C01、C04、C06、C07：CS:GO Cache 配置的 `a_site_quad_goto`、`mid_t_goto`、`mid_goto`、`b_site_halls_corner_goto`。作为用户选择的原坐标保留，未在当前 CS2 中实机校准。
   https://github.com/kynarilaarnio/csgo-observer-config/blob/master/pos_cache.cfg
 
-坐标格式：世界 X/Y/Z、俯仰角 pitch、偏航角 yaw。固定机位只发送原生 `spec_autodirector 0; spec_mode 6; spec_goto ...`，不使用 HLAE 或旧版 `spec_lerpto`。同图的静态按钮无需统一换算雷达缩放；地图图片坐标不是相机世界坐标。
+坐标格式：世界 X/Y/Z、俯仰角 pitch、偏航角 yaw。固定机位只发送原生 `spec_autodirector 0; spec_goto ...`，不使用 HLAE 或旧版 `spec_lerpto`。同图的静态按钮无需统一换算雷达缩放；地图图片坐标不是相机世界坐标。
+
+2026-10-06：固定机位和道具追踪移除定位前的 `spec_mode 6`。参考 CSDM 的 `addFocusCamera` 直接发送 `spec_goto`：https://github.com/akiver/cs-demo-manager/blob/main/src/node/counter-strike/json-actions-file/json-actions-file-generator.ts 。此参考为 Demo 实现；实时 GOTV 的镜头效果仍需实机复测，TCP 回显和模拟测试不证明实际相机已移动。
 
 ## MIT notices
 

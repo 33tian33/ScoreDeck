@@ -1,8 +1,8 @@
 {
   "name": "scoredeck-cs-broadcast",
-  "version": "2.18.11",
+  "version": "2.18.12",
   "private": true,
-  "description": "ScoreDeck CS 2.18.11 — Custom broadcast panels and chronological schedules",
+  "description": "ScoreDeck CS 2.18.12 — Automatic post-map GSI results and multi-map manual priority",
   "main": "desktop/main.cjs",
   "type": "module",
   "dependencies": {},
