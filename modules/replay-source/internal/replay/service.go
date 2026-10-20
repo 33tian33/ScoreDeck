@@ -15,6 +15,14 @@ import (
 
 type Service struct {
 	EmbedOrigin       string // Exact loopback origins supplied by ScoreDeck.
+	presentationHost  string
+	startupHUDPending bool
+	headlessWindow    CS2Launch
+	playerMapping     *playerMapping
+	gotvReconnect     CS2Launch
+	gotvSentAt        int64
+	gotvManualSendKey string
+	mappingBusy       bool
 	phaseAnchors      map[string]clockSample
 	relayState        relayStatus
 	hudHidden         bool
@@ -46,6 +54,7 @@ type Service struct {
 	wg                sync.WaitGroup
 	active            bool
 	captureMu         sync.Mutex
+	downloadMu        sync.Mutex
 	remoteEpoch       int
 	storageErr        string
 	observed          string
@@ -149,6 +158,11 @@ func New(dir, role string) (*Service, error) {
 		}
 		a.s.HighlightsVersion = 1
 	}
+	if role == "agent" {
+		// Each recording session starts with bundled Astra, even after a custom HUD.
+		// Keep the previous source name so OBS can disable it during installation.
+		a.s.HUD = HUDSettings{Mode: "astra"}.normalized()
+	}
 	a.s.HUD = a.s.HUD.normalized()
 	if a.s.HUDActiveSource != "" {
 		a.s.TeamHUD = true
@@ -236,7 +250,20 @@ func (a *Service) Close() {
 }
 
 func (a *Service) logLocked(level, message string) {
-	a.s.Logs = append(a.s.Logs, Log{nowMS(), level, message})
+	entry := Log{nowMS(), level, message}
+	// Keep a bounded disk history even when the dashboard's 200 entries roll off.
+	if a.dir != "" {
+		path := filepath.Join(a.dir, "runtime.jsonl")
+		if info, err := os.Stat(path); err == nil && info.Size() >= 8<<20 {
+			os.Remove(path + ".1")
+			os.Rename(path, path+".1")
+		}
+		if f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600); err == nil {
+			_ = json.NewEncoder(f).Encode(entry)
+			_ = f.Close()
+		}
+	}
+	a.s.Logs = append(a.s.Logs, entry)
 	if len(a.s.Logs) > 200 {
 		a.s.Logs = a.s.Logs[len(a.s.Logs)-200:]
 	}
@@ -264,12 +291,12 @@ func (a *Service) snapshot() map[string]any {
 	if a.role == "agent" {
 		side = "b"
 	}
-	return map[string]any{"relay": a.relayState, "gsi": jsonCopy(a.gsiDiagnostics), "hud_import": a.hudImport, "obs_launch": a.obsLaunch, "cs2_launch": a.cs2Launch, "local_demo": a.localDemo, "output": a.output, "output_online": nowMS()-a.outputSeen < 3000, "output_error": a.outputError, "hotkey_status": a.hotkeyStatus, "current_round": a.gsiRound[side] + 1, "output_url": "/output.html", "version": Version, "role": a.role, "state": s, "now": nowMS(), "observed": a.observed, "observed_at": a.observedAt, "round_clocks": jsonCopy(a.roundClocks), "storage_error": a.storageErr, "playback": a.playback, "remote_at": a.remoteAt, "remote_uncertainty_ms": a.remoteUncertainty}
+	return map[string]any{"headless_window": a.headlessWindow, "gotv_reconnect": a.gotvReconnect, "player_mapping": jsonCopy(a.playerMapping), "relay": a.relayState, "gsi": jsonCopy(a.gsiDiagnostics), "hud_import": a.hudImport, "obs_launch": a.obsLaunch, "cs2_launch": a.cs2Launch, "local_demo": a.localDemo, "output": a.output, "output_online": nowMS()-a.outputSeen < 3000, "output_error": a.outputError, "hotkey_status": a.hotkeyStatus, "current_round": a.gsiRound[side] + 1, "output_url": "/output.html", "version": Version, "role": a.role, "state": s, "now": nowMS(), "observed": a.observed, "observed_at": a.observedAt, "round_clocks": jsonCopy(a.roundClocks), "storage_error": a.storageErr, "playback": a.playback, "remote_at": a.remoteAt, "remote_uncertainty_ms": a.remoteUncertainty}
 }
 func (a *Service) configure(c Config) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if (a.obsLaunch.Phase == "starting" || a.hudImport.Phase == "starting") || a.cs2Launch.Phase == "starting" || a.active || a.localDemo.Phase == "armed" || a.localDemo.Phase == "running" {
+	if a.gotvReconnect.Phase == "starting" || a.mappingBusy || (a.obsLaunch.Phase == "starting" || a.hudImport.Phase == "starting") || a.cs2Launch.Phase == "starting" || a.active || a.localDemo.Phase == "armed" || a.localDemo.Phase == "running" {
 		return errors.New("请先停止 Demo 联调；已有提交或录制任务，请等待完成再修改配置")
 	}
 	old := a.s.Config
@@ -303,6 +330,7 @@ func (a *Service) configure(c Config) error {
 		a.relayState = relayStatus{}
 	}
 	a.s.Config = c
+	a.gotvManualSendKey = ""
 	a.localDemo = LocalDemo{}
 	a.roundClocks = nil
 	a.phaseAnchors = nil
@@ -405,12 +433,16 @@ func (a *Service) tick() {
 	a.mu.Lock()
 	a.tickDemoLocked()
 	a.tickOutputLocked()
-	if a.storageErr != "" || (a.obsLaunch.Phase == "starting" || a.hudImport.Phase == "starting") {
+	if a.gotvReconnect.Phase == "starting" || a.storageErr != "" || (a.obsLaunch.Phase == "starting" || a.hudImport.Phase == "starting") {
 		a.mu.Unlock()
 		return
 	}
-	c := a.s.Config
 	t := nowMS()
+	if a.startPlayerMappingLocked(t) {
+		a.mu.Unlock()
+		return
+	}
+	c := a.captureConfigLocked()
 	a.forwardRoundEventsLocked(c)
 	if a.role == "agent" {
 		a.resolveRoundEventsLocked(t)
@@ -440,7 +472,7 @@ func (a *Service) tick() {
 	if first.RoundTiming {
 		lead = 350
 	} // Track B countdown until just before capture.
-	if start-int64(c.Setup*1000) > t+lead {
+	if start-recordingSetupMS(c) > t+lead {
 		a.mu.Unlock()
 		return
 	}
@@ -500,6 +532,9 @@ func (a *Service) jobUpdate(jobID, status, reason string, artifacts []Artifact) 
 	defer a.mu.Unlock()
 	for i := range a.s.Jobs {
 		if a.s.Jobs[i].ID == jobID {
+			if a.s.Jobs[i].Status == "CANCELLED" {
+				return
+			}
 			a.s.Jobs[i].Status = status
 			a.s.Jobs[i].Error = reason
 			if artifacts != nil {
@@ -539,7 +574,7 @@ func (a *Service) jobUpdate(jobID, status, reason string, artifacts []Artifact) 
 	a.saveLocked()
 }
 func (a *Service) waitUntil(t int64) error {
-	wait := time.Until(time.UnixMilli(t))
+	wait := time.Duration(t-nowMS()) * time.Millisecond
 	if wait <= 0 {
 		return nil
 	}

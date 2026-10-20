@@ -1,6 +1,6 @@
 const sdMaps=['dust2','mirage','inferno','nuke','ancient','anubis','overpass','train','vertigo','cache'];
 const sdMapKey=v=>String(v||'').toLowerCase().replace(/^.*\//,'').replace(/^de_/,'').replace(/[^a-z0-9]/g,'').replace(/^dustii$/,'dust2');
-const sdBPTemplate=(bo,first='A')=>({1:['A:ban','B:ban','A:ban','B:ban','A:ban','B:ban',':decider'],2:['A:ban','B:ban','A:ban','B:ban','A:pick','B:pick',':unused'],3:['A:ban','B:ban','A:pick','B:pick','A:ban','B:ban',':decider'],5:['A:ban','B:ban','A:pick','B:pick','A:pick','B:pick',':decider']}[bo]||[]).map(x=>{const [team,action]=x.split(':');return {team:first==='B'&&team?(team==='A'?'B':'A'):team,action,map:''};});
+const sdBPTemplate=(bo,first='A')=>({1:['A:ban','B:ban','A:ban','B:ban','A:ban','B:ban',':decider'],2:['A:ban','B:ban','B:ban','A:ban','A:pick','B:pick',':unused'],3:['A:ban','B:ban','A:pick','B:pick','A:ban','B:ban',':decider'],5:['A:ban','B:ban','A:pick','B:pick','A:pick','B:pick',':decider']}[bo]||[]).map(x=>{const [team,action]=x.split(':');return {team:first==='B'&&team?(team==='A'?'B':'A'):team,action,map:''};});
 const sdBPValid=m=>!!m&&m.bpBestOf===m?.bestOf&&(!m.bpTeams||JSON.stringify(m.bpTeams)===JSON.stringify([m.teamAId||'',m.teamBId||'']));
 const sdBPBase=m=>({bestOf:m.bestOf,bp:m.bp||[],bpFirstSide:m.bpFirstSide||'A',teamAId:m.teamAId,teamBId:m.teamBId});
 const sdBPInitial=m=>sdBPValid(m)&&Array.isArray(m.bp)?m.bp:sdBPTemplate(m.bestOf,m.bpFirstSide||'A');

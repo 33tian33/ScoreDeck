@@ -1,12 +1,12 @@
 {
   "repository": "https://github.com/33tian33/Project-Replay-in-for-CS2-tournaments",
-  "release": "https://github.com/33tian33/Project-Replay-in-for-CS2-tournaments/releases/tag/v0.2.6",
-  "tag": "v0.2.6",
-  "commit": "f1caf6d16842abdf5a9eb5bb37765b872e3161f4",
-  "publishedAt": "2026-10-05T17:21:24Z",
-  "windowsAsset": "ProjectReplay-0.2.6-windows-amd64-portable.zip",
-  "windowsAssetSha256": "16e1e1514de2242afa33b4d32156cdbc73fe262e18fb37e727e3c85c8dc3f31c",
-  "integration": "Built from v0.2.6 source with ScoreDeck lifecycle, embedding, managed identities, WebP conversion, fonts, styling, chronological/manual highlight collection and isolated director clip playback adapters.",
+  "release": "https://github.com/33tian33/Project-Replay-in-for-CS2-tournaments/releases/tag/v0.2.11",
+  "tag": "v0.2.11",
+  "commit": "e4ce7b00b6be640b8e8638c61813d810cec9b941",
+  "publishedAt": "2026-10-20T17:30:45Z",
+  "windowsAsset": "ProjectReplay-0.2.11-windows-amd64-portable.zip",
+  "windowsAssetSha256": "94a413be68f80b3e593b058afa7537e557792e31eff2108d54a2f958e15ee509",
+  "integration": "Built from v0.2.11 source with ScoreDeck lifecycle, embedding, managed identities, WebP conversion, fonts, styling, chronological/manual highlight collection and isolated director clip playback adapters.",
   "sourceDirectory": "../replay-source",
   "buildCommand": "go build -buildvcs=false -trimpath -o ../replay/ProjectReplay.exe ./cmd/replay"
 }

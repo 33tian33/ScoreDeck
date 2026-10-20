@@ -2,7 +2,7 @@
 const {resolveMain}=require('./integration-identity.cjs');
 const mapKey=v=>String(v||'').toLowerCase().replace(/^.*\//,'').replace(/^de_/,'').replace(/[^a-z0-9]/g,'').replace(/^dustii$/,'dust2');
 const MAPS=['dust2','mirage','inferno','nuke','ancient','anubis','overpass','train','vertigo','cache'];
-const TEMPLATES={1:['A:ban','B:ban','A:ban','B:ban','A:ban','B:ban',':decider'],2:['A:ban','B:ban','A:ban','B:ban','A:pick','B:pick',':unused'],3:['A:ban','B:ban','A:pick','B:pick','A:ban','B:ban',':decider'],5:['A:ban','B:ban','A:pick','B:pick','A:pick','B:pick',':decider']};
+const TEMPLATES={1:['A:ban','B:ban','A:ban','B:ban','A:ban','B:ban',':decider'],2:['A:ban','B:ban','B:ban','A:ban','A:pick','B:pick',':unused'],3:['A:ban','B:ban','A:pick','B:pick','A:ban','B:ban',':decider'],5:['A:ban','B:ban','A:pick','B:pick','A:pick','B:pick',':decider']};
 const firstSide=value=>value==='B'?'B':'A';
 function template(bo,first='A'){return (TEMPLATES[bo]||TEMPLATES[3]).map(v=>{const [team,action]=v.split(':');return {team:firstSide(first)==='B'&&team?(team==='A'?'B':'A'):team,action,map:''};});}
 function bpValid(m){return !!m&&m.bpBestOf===m?.bestOf&&(!m.bpTeams||JSON.stringify(m.bpTeams)===JSON.stringify([m.teamAId||'',m.teamBId||'']));}

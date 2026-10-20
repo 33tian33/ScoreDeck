@@ -83,7 +83,7 @@ func TestHUDInstallationInOBSIsIdempotent(t *testing.T) {
 			case "GetInputList":
 				data["inputs"] = []any{}
 				if created > 0 {
-					data["inputs"] = []any{map[string]any{"inputName": "Project Replay Team HUD"}}
+					data["inputs"] = []any{map[string]any{"inputName": "Project Replay Astra HUD"}}
 				}
 			case "CreateInput":
 				created++
@@ -108,6 +108,12 @@ func TestHUDInstallationInOBSIsIdempotent(t *testing.T) {
 	defer server.Close()
 	a := testService(t, "agent")
 	a.s.Config.OBSURL = "ws" + strings.TrimPrefix(server.URL, "http")
+	a.startDefaultHUD("127.0.0.1:7788")
+	waitRelay(t, func() bool {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		return !a.startupHUDPending && a.s.HUDActiveSource == "Project Replay Astra HUD"
+	})
 	for i := 0; i < 2; i++ {
 		w := request(t, a, "POST", "http://127.0.0.1:7788/api/hud/obs", map[string]any{}, "", "")
 		if w.Code != 200 {
@@ -116,7 +122,7 @@ func TestHUDInstallationInOBSIsIdempotent(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if created != 1 || settings["url"] != "http://127.0.0.1:7788/hud.html" || number(transform, "scaleX") != 1280.0/1920 {
+	if created != 1 || settings["url"] != "http://127.0.0.1:7788/astra/index.html" || number(transform, "scaleX") != 1280.0/1920 {
 		t.Fatal(created, settings, transform)
 	}
 }

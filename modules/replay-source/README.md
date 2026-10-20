@@ -1,4 +1,10 @@
-# Project Replay 0.2.6
+# Project Replay 0.2.11
+
+## 0.2.7 内置 Astra HUD 与完整 GSI
+
+HUD 选择与设置中可直接选择 **Astra HUD（内置 · 默认）** 或 **OpenHUD（已有 OBS 源）**。Astra 页面、字体、武器图标和雷达随程序嵌入，无需 ZIP 和额外服务；新配置默认选用 Astra，已有明确选择保留。OpenHUD 复用其已有 OBS 源，保留原地址、尺寸和滤镜。切换时关闭其他 Replay HUD 及旧的 OpenHUD Broadcast，录制前仍校验只启用所选 HUD。
+
+Replay 自动安装和下载的 A/B 路 GSI 配置均包含 Astra 所需的玩家位置/朝向、武器/弹药、比赛统计、回合历史、C4 和投掷物数据。安装新配置后需重启 CS2 以加载；位置与全员数据需观战/GOTV 权限。字段映射和限制见 [Astra HUD 集成](docs/Astra-HUD.md)。
 
 ## 0.2.6 单 HUD、保枪击杀与连续切镜
 
@@ -31,9 +37,9 @@ CS2 双端回放软件首版：Windows 导播台 + Linux 录制 Agent。中文�
 
 | 设备 | 文件 |
 |---|---|
-| Windows 10/11 x64 | `dist/ProjectReplay-windows-x64-portable.exe`，或附说明的 `ProjectReplay-0.2.6-windows-amd64-portable.zip` |
-| DGX Spark / Linux ARM64 | `dist/ProjectReplay-0.2.6-linux-arm64.tar.gz` |
-| 普通 Linux x64 | `dist/ProjectReplay-0.2.6-linux-amd64.tar.gz` |
+| Windows 10/11 x64 | `dist/ProjectReplay-windows-x64-portable.exe`，或附说明的 `ProjectReplay-0.2.10-windows-amd64-portable.zip` |
+| DGX Spark / Linux ARM64 | `dist/ProjectReplay-0.2.10-linux-arm64.tar.gz` |
+| 普通 Linux x64 | `dist/ProjectReplay-0.2.10-linux-amd64.tar.gz` |
 
 Windows：将 EXE 放入可写目录，双击启动，浏览器自动打开本地导播台。免安装、不需要 Python/.NET/Node；EXE 未做代码签名。首次运行在 EXE 同目录创建 `replay-data`，包括配置、素材和状态；移动程序时一并移动此目录。ZIP 内含启动脚本、说明和许可证。浏览器未打开时，使用终端显示的地址。
 
@@ -83,7 +89,7 @@ Windows 新增「一键清理两端 Replay 临时文件」：先清理 Linux，�
 - 本机运行 CS2 观战客户端与 OBS，并提供 NetCon（例如 `127.0.0.1:2121`）、OBS WebSocket 5.x（已有部署可用 `ws://127.0.0.1:4466`）。填入实际密码。
 - 安装/配置本机 FFmpeg、ffprobe；FFmpeg 必须含 libx264。软件调用外部二进制，不随包分发。
 - 配置 CSStudio 的实际 `session.lock` 绝对路径。Replay 同时争用该锁及 `/tmp/cs2-recorder-UID.lock`，拒绝与现有批录制并行使用会话；以同一 Linux 用户运行。锁目录必须已经存在。
-- 使用真实模式；设置比赛和地图；epoch 是各端内部版本，无需对齐。槽位映射可留空：程序先按 B 路唯一玩家名切人并核验 SteamID。同名或特殊名字可填已确认槽位，如 `{"76561198000000001":14}`。不会把 observer_slot 当作命令槽位。
+- 使用真实模式；设置比赛和地图；epoch 是各端内部版本，无需对齐。槽位映射可留空：Linux B 路在真实模式、自动采集开启且空闲时自动探测 1–128 命令槽位，用切镜后的新鲜 GSI SteamID 双向重复核验，再自动用于录制。无需按玩家名称匹配，也不把 observer_slot 当作命令槽位。首次确认期间会切换 B 路画面并暂缓录制，进度显示在 GSI 状态栏；无效槽位、死亡或暂不可观战的选手不会被猜测映射，部分失败时 30 秒后空闲重试。自动结果仅保留在当前进程与会话，换图、名单变化、超过 5 秒的断流恢复后重新确认。手动 mappings 可覆盖自动结果，例如 `{"76561198000000001":14}`（仅为示例，需先核验真实槽位）。
 - Linux Agent 启动时自动检测普通 Steam、Snap、Flatpak 及 Steam 自定义库，在 CS2 的 `game/csgo/cfg` 写入或更新 `gamestate_integration_replay_b.cfg`，使用当前监听端口，不改动其他 GSI 文件。找不到目录、存在多个安装或写入失败时，界面日志会提示原因，程序仍正常启动。可用 `./start-agent.sh -cs2-cfg "/绝对路径/game/csgo/cfg"` 指定目录。若游戏已在运行，请重启 CS2 加载配置；不会自动重启游戏。仍可在界面手动下载配置。
 - 支持直接粘贴平台指令 `connect IP:端口;password xxx`，也兼容 `host:port`。在 Windows 保存配置并勾选自动发送，或直接点击「连接 Linux GOTV-B」，即可转发 Linux。程序解析地址和密码后，先执行 `password "xxx"` 再执行 `connect IP:端口`；含空格的密码须用双引号包裹。密码独立保存，不通过状态接口或日志回显；同一地址留空保留密码，换新地址且未提供密码时清除旧密码。可用 `password ""` 显式清除密码。连接命令使 Linux epoch 增加并重置时间线，GSI 自动录制无需手工校准。
 - 默认开启“自动录制 / 发送任务（近似定位）”：GSI 识别击杀后自动规划，满足时序、映射和节点条件时自动提交；普通 GSI 击杀按回合号与阶段倒计时自动发送，无需校准或 tick。素材会标注 `estimated`。严格模式可在设置中主动开启，但目前会阻止真实出片。升级旧版时首次迁移为上述自动近似采集默认值。手动暂停会关闭自动录制，后续校准不会擅自恢复；重启保留自动采集开关；换图或回档后等待新鲜 GSI，旧任务失效。
@@ -182,7 +188,7 @@ python3 scripts/build.py
 
 ### 自动隐藏游戏 UI 与最低画质
 
-Linux 安装战队 HUD 到 OBS 时，真实模式会按 CSStudio 的 `openhud_headless.json` 发送 `sv_cheats 1; gameui_hide; hideconsole; cl_drawhud 0; crosshair 0; demo_ui_mode 0; cl_draw_only_deathnotices 0; cl_drawhud_force_deathnotices -1; cl_drawhud_force_radar -1; cl_drawhud_force_teamid_overhead -1; spec_show_xray 1`，并回读确认。游戏拒绝时会报告失败。成功后保存战队 HUD 模式，录制、切换镜头、Demo 播放及重新启动游戏时沿用；启用 OBS HUD 后禁止再显示游戏原生 HUD，避免重复叠加。
+Linux 安装战队 HUD 到 OBS 时，真实模式会使用无需 `sv_cheats` 的隐藏方案，发送 `gameui_hide; hideconsole; crosshair 0; demo_ui_mode 0; cl_draw_only_deathnotices 1; cl_drawhud_force_deathnotices -1; cl_drawhud_force_radar -1; cl_drawhud_force_teamid_overhead -1; spec_show_xray 1`，并回读确认。游戏拒绝时会报告失败。成功后保存战队 HUD 模式，录制、切换镜头、Demo 播放及重新启动游戏时沿用；启用 OBS HUD 后禁止再显示游戏原生 HUD，避免重复叠加。
 
 通过 Replay 启动新的 CS2 进程前，自动备份并原子更新 Snap Steam 账户的 `cs2_video.txt`：关闭抗锯齿、环境光遮蔽和垂直同步，阴影、纹理、粒子、过滤采用最低设置，HDR / FSR 采用性能设置，输出保留 1920×1080。配置缺失、字段异常或发现多个账户时会报错并停止启动。已经运行的 CS2 不会被强制重启，画质在下次关闭后重新启动时应用。
 
@@ -241,3 +247,41 @@ Replay 自动注入只读数据桥：
 - `fetch('/hud-api/state')`：内置 HUD 的战队名称、图标、比分、回合与倒计时接口。
 
 导入 HTML 使用 sandbox 隔离，仅开放 HUD 只读数据接口；无法借导入脚本调用 Replay 控制 API。游戏未启动时先启用 OBS 图层，后续启动 CS2 时应用隐藏原生 HUD 的设置。选择「自定义 HUD 设置 → 已导入的 ZIP HUD」可重新启用上次导入的包。
+
+### 0.2.8 录制修复
+
+- 同一回合、连续同一玩家视角中，相邻击杀间隔不超过 3 秒时合并导出一个片段，包含首次击杀前镜头和最后一次击杀后的镜头。跨玩家切镜、跨回合和道具镜头分别输出。
+- 合并素材记录全部 event_ids；多个击杀回传复用同一文件，素材库和播出队列不重复添加。Windows 导播端和 Linux Agent 都需更新到 0.2.8。
+- 回合结束时 map.round 提前增加、阶段字段延迟更新时保持结束回合归属；新 freezetime 不被旧 round.phase=over 卡在上一回合。
+- 自动命令槽位映射及细分目标诊断包含在本版中。
+
+### 0.2.9 GOTV 快捷重连
+
+检查补充：Windows 主界面的连接入口控制 Linux B 路，并不连接 Windows 本机 A 路。控制台 TCP 写入成功只表示命令已发送；后续收到比赛 GSI 也不包含目标服务器地址，仍需核对 B 路游戏画面确认实际服务器。普通连接现会清除旧连接状态，重新显示等待 GSI。
+
+下包后击杀：`bomb` 阶段可正常定位；拆包进入 `defuse` 时，录制时钟现沿用此前已观察到的炸弹倒计时，并根据拆包倒计时的推进更新，支持中断和重新拆包。不能直接将拆包的 5/10 秒当作炸弹剩余时间。若从拆包中途才开始接收、没有炸弹时钟基线，则等待有效时钟，不猜测定位。新增模拟 GSI 回归覆盖拆包击杀、暂停和重复拆包；真实 Windows + 在线 GOTV 实测仍待完成。
+
+Windows A 路主界面可直接粘贴 `connect host:27020;password 密码`（也支持密码指令在前），或分别填写地址与密码。点击“立即重连 B 路”会取消 B 路旧录制 / Demo / 自动映射，等待 OBS 清理和相机释放，然后断开旧连接、设置密码并连接 GOTV。同一地址密码留空保留已存密码；新地址未填密码会清空旧密码。界面跟踪 B 路处理结果；“命令已发送”不等于游戏已连上，收到比赛 GSI 后显示后续状态。A/B 两端需更新到 0.2.9。
+
+### 0.2.10 本次训练赛修复
+
+- A/B 两端需一起升级：拆包阶段沿用已建立的炸弹时钟；没有基线时不猜测定位。
+- OBS 启动准备至少提前 0.3 秒，与连续录制中的切镜间隔分开；不改变导出片段长度。
+- 自动槽位探测每次最多约 6 秒（正在执行的控制台请求可延长至超时），保留已核验槽位和扫描位置；已知目标即将录制时让出相机，避免一次重探测阻塞整回合。未知槽位仍不能安全录制。
+- 切镜确认允许在不会导出的 guard 范围内等待 GSI，进入实际素材范围后仍严格拒绝错误或过期观战信息。
+- 过期事件保留此前原因；运行日志写入 replay-data/runtime.jsonl，每 8 MiB 轮转并保留一个上一份文件，不再只依赖界面最近 200 条日志。B 路时钟错误包含样本时间与阶段，方便区分停播和断流。
+- 进程内调度采用单调时间，避免系统校时使录制时间倒退。GOTV 状态明确提示 30 秒未收到 GSI、后续断流及服务器地址未核实。
+
+以上修复不能恢复此前未录制的片段，也不能修复外部网络中断或替代真实服务器连接验收。构建新安装包不自动替换正在运行的 A/B 程序。
+
+输出播放器补充修复：视频已开始后，媒体时间或可用的视频帧回调连续 3 秒未推进，会立即隐藏两路视频和 Replay 标识，并报告播放停滞；不依赖服务端心跳断开或 120 秒兜底期限。浏览器不支持视频帧回调时，检测媒体时间进度。
+
+### 0.2.11 GOTV 状态修复、默认 Astra HUD 与无头窗口保护
+
+- 修复云中继模式下“重连状态暂时不可达：节点 HTTP 403：不允许转发此接口”：将只读 `GET /api/gotv-status` 加入 Relay 与 Agent 共用的转发白名单。
+- 增加导播端 → Relay → Agent 状态查询回归测试，并验证同一路径的 POST 请求仍被拒绝。
+- 每次启动录制端默认选择 Astra HUD，并自动应用至 OBS；OBS 未就绪时每 5 秒重试，录制前也会补做应用。当次运行可手动切换其他 HUD，下次启动恢复 Astra；旧 HUD 源会在应用时关闭，避免重复叠加。
+- Linux Agent 每秒检查无头显示器 `:20` 上的真实 CS2 进程窗口，设置置顶、恢复最小化和焦点，并在其他窗口遮挡后重新提升。不会操作日常桌面的 CS2；退出 Agent 后不再持续保护。界面显示保护状态。
+- 窗口保护内置纯 Go X11 客户端，无需安装 `wmctrl` 或 `xdotool`；使用现有无头会话的 Xauthority，不改变桌面访问权限。受窗口管理器管理的普通窗口通过 EWMH 处理，Steam 游戏内覆盖层不属于桌面窗口。
+- **云端 Relay 与 Linux Agent 必须同时升级并重启**；仅更新 Windows 导播端无法修复旧 Relay 的 403。Windows 导播端也提供对应 0.2.11 包。
+- 升级保留 `replay-data`、`relay-data` 和已有配置。连接命令已发送不等于 GOTV 已连接，仍需观察 GSI 状态并核对 B 路游戏画面。

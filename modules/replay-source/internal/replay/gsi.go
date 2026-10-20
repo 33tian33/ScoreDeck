@@ -66,8 +66,17 @@ func (a *Service) ingestGSI(side string, payload map[string]any) (err error) {
 	t := nowMS()
 	gameMap := stringField(obj(payload, "map"), "name")
 	previousRound := a.gsiRound[side] + 1
-	round := roundNumber(payload, a.previous[side], previousRound) - 1
+	roundBaseline := a.previous[side]
+	if a.gsiSeen[side] > 0 && t-a.gsiSeen[side] > 5000 && !roundOver(payload) {
+		// A whole round may have passed during an outage; a similar countdown
+		// is no longer evidence of a continuous end-of-round packet sequence.
+		roundBaseline = nil
+	}
+	round := roundNumber(payload, roundBaseline, previousRound) - 1
 	if gameMap == "" {
+		if side == "b" {
+			a.refreshPlayerMappingLocked(true)
+		}
 		// Menu/loading snapshots must not create kills against the last known map.
 		delete(a.previous, side)
 		delete(a.roundClocks, side)
@@ -110,6 +119,8 @@ func (a *Service) ingestGSI(side string, payload map[string]any) (err error) {
 		delete(a.phaseAnchors, side)
 		a.logLocked("warn", "GSI 断流后恢复：保留待录任务，重新建立计数和时钟基线")
 	}
+	resetMapping := a.gsiSeen[side] > 0 && t-a.gsiSeen[side] > 5000
+	previousClock := a.roundClocks[side]
 	a.updateRoundClockForRoundLocked(side, payload, t, round+1)
 	a.gsiMap[side] = gameMap
 	a.gsiSeen[side] = t
@@ -121,6 +132,10 @@ func (a *Service) ingestGSI(side string, payload map[string]any) (err error) {
 		a.previous[side] = payload
 		a.observed = stringField(obj(payload, "player"), "steamid")
 		a.observedAt = t
+		a.refreshPlayerMappingLocked(resetMapping)
+		if a.gotvReconnect.Phase == "sent" && a.observed != "" && len(obj(payload, "allplayers")) > 0 {
+			a.gotvReconnect = CS2Launch{Phase: "receiving", Message: "已收到 B 路比赛 GSI；目标服务器地址仍需在游戏中核对"}
+		}
 		return nil
 	}
 	a.detectOutputLocked(payload)
@@ -184,7 +199,10 @@ func (a *Service) ingestGSI(side string, payload map[string]any) (err error) {
 			e.RoundTiming = true
 			e.Uncertainty = .15 // GSI countdown estimate; independent of legacy delay calibration.
 			e.Time = 0
-			e.Clock = readRoundClock(payload)
+			if sample, ok := a.roundClocks[side]; ok {
+				clock := sample.Clock
+				e.Clock = &clock
+			}
 			if e.Clock != nil {
 				e.Clock.Round = e.Round
 			}
@@ -194,7 +212,11 @@ func (a *Service) ingestGSI(side string, payload map[string]any) (err error) {
 			}
 			// Last kill may arrive with the new phase; project from the preceding
 			// active phase so B can start recording BEFORE the phase transition.
-			beforeClock := readRoundClock(old)
+			var beforeClock *RoundClock
+			if previousClock.At > 0 {
+				clock := previousClock.Clock
+				beforeClock = &clock
+			}
 			if beforeClock != nil {
 				beforeClock.Round = previousRound
 			}
@@ -283,6 +305,42 @@ func clutchOpponents(players map[string]any, steam string) int {
 	return 0
 }
 
+// Subscribe to every component consumed by the bundled Astra HUD, including
+// observer-only positions, inventories, bomb and grenade trajectories.
 func (a *Service) gsiConfig(side, base string) string {
-	return fmt.Sprintf("\"Project Replay %s\"\n{\n  \"uri\" \"%s/gsi/%s\"\n  \"timeout\" \"2.0\"\n  \"buffer\" \"0.05\"\n  \"throttle\" \"0.1\"\n  \"heartbeat\" \"1.0\"\n  \"data\" { \"provider\" \"1\" \"map\" \"1\" \"round\" \"1\" \"phase_countdowns\" \"1\" \"player_id\" \"1\" \"player_state\" \"1\" \"allplayers_id\" \"1\" \"allplayers_state\" \"1\" \"allplayers_match_stats\" \"1\" }\n}\n", side, base, side)
+	return fmt.Sprintf(`"Project Replay %s"
+{
+  "uri" "%s/gsi/%s"
+  "timeout" "2.0"
+  "buffer" "0.05"
+  "throttle" "0.1"
+  "heartbeat" "1.0"
+  "output"
+  {
+    "precision_time" "3"
+    "precision_position" "1"
+    "precision_vector" "3"
+  }
+  "data"
+  {
+    "provider" "1"
+    "map" "1"
+    "map_round_wins" "1"
+    "round" "1"
+    "phase_countdowns" "1"
+    "player_id" "1"
+    "player_state" "1"
+    "player_match_stats" "1"
+    "player_weapons" "1"
+    "player_position" "1"
+    "allplayers_id" "1"
+    "allplayers_state" "1"
+    "allplayers_match_stats" "1"
+    "allplayers_weapons" "1"
+    "allplayers_position" "1"
+    "bomb" "1"
+    "allgrenades" "1"
+  }
+}
+`, side, base, side)
 }

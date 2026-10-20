@@ -1,8 +1,8 @@
 {
   "name": "scoredeck-cs-broadcast",
-  "version": "2.18.12",
+  "version": "2.19.3",
   "private": true,
-  "description": "ScoreDeck CS 2.18.12 — Automatic post-map GSI results and multi-map manual priority",
+  "description": "ScoreDeck CS 2.19.3 — Replay 0.2.11 and one-click tournament sync",
   "main": "desktop/main.cjs",
   "type": "module",
   "dependencies": {},

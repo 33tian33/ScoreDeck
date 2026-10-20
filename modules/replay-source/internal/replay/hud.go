@@ -12,8 +12,8 @@ import (
 
 const fullHUDCommand = "gameui_hide; hideconsole; demo_ui_mode 0; cl_drawhud 1; crosshair 1; cl_draw_only_deathnotices 0; cl_drawhud_force_radar 0; cl_drawhud_force_deathnotices 0; cl_drawhud_force_teamid_overhead 0; spec_show_xray 1"
 
-// Match CSStudio config/openhud_headless.json.
-const teamHUDCommand = "sv_cheats 1; gameui_hide; hideconsole; cl_drawhud 0; crosshair 0; demo_ui_mode 0; cl_draw_only_deathnotices 0; cl_drawhud_force_deathnotices -1; cl_drawhud_force_radar -1; cl_drawhud_force_teamid_overhead -1; spec_show_xray 1"
+// Hide native overlays without cheat-protected cl_drawhud or server sv_cheats.
+const teamHUDCommand = "gameui_hide; hideconsole; crosshair 0; demo_ui_mode 0; cl_draw_only_deathnotices 1; cl_drawhud_force_deathnotices -1; cl_drawhud_force_radar -1; cl_drawhud_force_teamid_overhead -1; spec_show_xray 1"
 
 func (a *Service) recordingHUDCommandLocked() string {
 	if a.s.TeamHUD || a.s.HUDActiveSource != "" || a.hudHidden {
@@ -58,10 +58,11 @@ func hideGameUI(address string) error {
 	if err != nil {
 		return err
 	}
-	for _, name := range []string{"cl_drawhud", "crosshair", "cl_draw_only_deathnotices"} {
-		if value, known := hudValue(reply, name); !known || value {
-			return fmt.Errorf("游戏未确认关闭 %s：%.800s", name, reply)
-		}
+	if value, known := hudValue(reply, "crosshair"); !known || value {
+		return fmt.Errorf("游戏未确认关闭准星：%.800s", reply)
+	}
+	if value, known := hudValue(reply, "cl_draw_only_deathnotices"); !known || !value {
+		return fmt.Errorf("游戏未确认启用原生 HUD 隐藏模式：%.800s", reply)
 	}
 	if value, known := hudValue(reply, "spec_show_xray"); !known || !value {
 		return fmt.Errorf("游戏未确认开启 X 光：%.800s", reply)
@@ -94,7 +95,7 @@ func (a *Service) setHUD(visible bool) error {
 			return errors.New("录制任务已锁定，请等待完成后切换 HUD")
 		}
 	}
-	if a.active && !a.pendingJobsLocked() || a.localDemo.Phase == "armed" {
+	if a.gotvReconnect.Phase == "starting" || a.mappingBusy || a.active && !a.pendingJobsLocked() || a.localDemo.Phase == "armed" {
 		return errors.New("录制任务已锁定，请等待完成后切换 HUD")
 	}
 	c := a.s.Config
@@ -128,7 +129,7 @@ func (a *Service) setHUD(visible bool) error {
 	}
 	value, known := hudValue(reply, "cl_drawhud")
 	deathOnly, deathKnown := hudValue(reply, "cl_draw_only_deathnotices")
-	if !known || value != visible || visible && (!deathKnown || deathOnly) {
+	if !deathKnown || deathOnly == visible || visible && (!known || !value) {
 		return fmt.Errorf("游戏未确认 HUD 状态；cl_drawhud 可能受命令权限限制。请检查 NetCon / Demo 权限，或使用“安装战队 HUD 到 OBS”。反馈：%.800s", reply)
 	}
 	a.s.TeamHUD = false
@@ -145,53 +146,60 @@ func (a *Service) hudRoutes(api *http.ServeMux) {
 			fail(w, errors.New("请在 Linux 空闲时安装 HUD"))
 			return
 		}
-		lock := a.s.Config.SessionLock
-		if lock == "" {
-			lock = filepath.Join(a.dir, "hud.lock")
-		}
-		release, err := resourceLock(lock)
+		result, err := a.applyHUDLocked(r.Host)
 		if err != nil {
 			fail(w, err)
 			return
 		}
-		defer release()
-		o, err := openOBS(a.s.Config)
-		if err != nil {
-			fail(w, err)
-			return
-		}
-		defer o.close()
-		previous := a.s.HUDActiveSource
-		if previous == "" && a.s.TeamHUD {
-			previous = "Project Replay Team HUD"
-		}
-		sceneName, input, err := installHUDSource(o, a.s.HUD, r.Host, previous)
-		if err != nil {
-			fail(w, err)
-			return
-		}
-		a.s.HUDActiveSource = input
-		a.s.HUD = a.s.HUD.normalized()
-		a.s.TeamHUD = true
-		a.hudHidden = false
-		warning := ""
-		if a.s.Config.Mode == "live" {
-			var gameErr error
-			if a.s.TeamHUD {
-				gameErr = hideGameUI(a.s.Config.NetCon)
-			} else {
-				gameErr = showGameUI(a.s.Config.NetCon)
-			}
-			if gameErr != nil {
-				warning = "HUD 已接入 OBS；游戏原生 HUD 状态尚未同步，启动 CS2 后请再次应用 HUD：" + gameErr.Error()
-			}
-		}
-		a.saveLocked()
-		if a.storageErr != "" {
-			fail(w, errors.New(a.storageErr))
-			return
-		}
-		a.logLocked("info", "已接入 HUD 源："+input)
-		respond(w, 200, map[string]any{"ok": true, "scene": sceneName, "source": input, "warning": warning})
+		respond(w, 200, result)
 	})
+}
+
+// Caller holds a.mu and has checked that no recording or launch is in progress.
+func (a *Service) applyHUDLocked(host string) (map[string]any, error) {
+	lock := a.s.Config.SessionLock
+	if lock == "" {
+		lock = filepath.Join(a.dir, "hud.lock")
+	}
+	release, err := resourceLock(lock)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	o, err := openOBS(a.s.Config)
+	if err != nil {
+		return nil, err
+	}
+	defer o.close()
+	previous := a.s.HUDActiveSource
+	if previous == "" && a.s.TeamHUD {
+		previous = "Project Replay Team HUD"
+	}
+	sceneName, input, err := installHUDSource(o, a.s.HUD, host, previous)
+	if err != nil {
+		return nil, err
+	}
+	a.s.HUDActiveSource = input
+	a.s.HUD = a.s.HUD.normalized()
+	a.s.TeamHUD = true
+	a.hudHidden = false
+	warning := ""
+	if a.s.Config.Mode == "live" {
+		var gameErr error
+		if a.s.TeamHUD {
+			gameErr = hideGameUI(a.s.Config.NetCon)
+		} else {
+			gameErr = showGameUI(a.s.Config.NetCon)
+		}
+		if gameErr != nil {
+			warning = "HUD 已接入 OBS；游戏原生 HUD 状态尚未同步，启动 CS2 后请再次应用 HUD：" + gameErr.Error()
+		}
+	}
+	a.saveLocked()
+	if a.storageErr != "" {
+		return nil, errors.New(a.storageErr)
+	}
+	a.logLocked("info", "已接入 HUD 源："+input)
+	a.startupHUDPending = false
+	return map[string]any{"ok": true, "scene": sceneName, "source": input, "warning": warning}, nil
 }

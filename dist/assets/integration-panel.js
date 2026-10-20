@@ -6,8 +6,8 @@ function sdIntegrationPanel({id,active}) {
   const [port,setPort]=l.useState(''),[autoStart,setAutoStart]=l.useState(false);
   const [directory,setDirectory]=l.useState(''),[includeRecordings,setIncludeRecordings]=l.useState(false);
   const [fullscreen,setFullscreen]=l.useState(false),[settingsOpen,setSettingsOpen]=l.useState(false);
-  const frame=l.useRef(null),identityPending=l.useRef(false);
-  const openModuleSettings=()=>{if(status?.phase==='running')frame.current?.contentWindow?.postMessage({type:'scoredeck-open-settings'},new URL(status.controlUrl).origin);};
+  const panel=l.useRef(null),identityPending=l.useRef(false);
+  const openModuleSettings=()=>panel.current?.querySelector('[data-native-module]')?.openSettings?.();
   const local=['127.0.0.1','localhost','::1'].includes(location.hostname),title=id==='replay'?'Replay 回放':'VoiceBridge 语音';
   const labels={stopped:'已停止',starting:'正在启动',running:'运行中',restarting:'正在重启',stopping:'正在保存并退出',error:'启动或运行异常'};
   l.useEffect(()=>{if(active)setVisited(true);else setFullscreen(false);},[active]);
@@ -27,8 +27,8 @@ function sdIntegrationPanel({id,active}) {
   const copy=async()=>{try{await navigator.clipboard.writeText(status.outputUrl);setMessage('已复制 OBS 浏览器源地址')}catch{setMessage('复制失败，请选中下方地址手动复制')}};
   if(!visited&&!active)return null;
   const transitional=busy||status?.busy||['starting','stopping','restarting'].includes(status?.phase),running=status?.phase==='running';
-  return h('section',{className:'panel sd-integration-panel'+(fullscreen?' sd-integration-fullscreen':''),hidden:!active,'data-module':id},
-    h('div',{className:'sd-integration-head'},h('div',null,h('p',{className:'eyebrow'},'BROADCAST MODULE'),h('h2',null,title),h('p',{className:'hint'},id==='replay'?'Project Replay 0.2.1 · 完整 Windows 导播台':'VoiceBridge 0.6.4-SD · 完整双频道语音导播台')),
+  return h('section',{ref:panel,className:'panel sd-integration-panel'+(fullscreen?' sd-integration-fullscreen':''),hidden:!active,'data-module':id},
+    h('div',{className:'sd-integration-head'},h('div',null,h('p',{className:'eyebrow'},'BROADCAST MODULE'),h('h2',null,title),h('p',{className:'hint'},id==='replay'?'Project Replay '+(status?.version||'')+' · 本地回放导播台':'VoiceBridge '+(status?.version||'')+' · 本地双频道语音导播台')),
       h('div',{className:'sd-module-actions'},h('span',{className:'sd-module-status '+(running?'running':'')},labels[status?.phase]||'等待连接'),h('button',{className:'button secondary','aria-expanded':settingsOpen,'aria-controls':'module-settings-'+id,onClick:()=>{setSettingsOpen(!settingsOpen);if(!settingsOpen)openModuleSettings();}},'设置'))),
     !local?h('p',{className:'hint'},'此模块连接本机 TS3、录制服务及 OBS，请在运行 ScoreDeck 的电脑上操作。远程赛事控制仍使用原有栏目。'):
     h(l.Fragment,null,
@@ -39,7 +39,7 @@ function sdIntegrationPanel({id,active}) {
         h('button',{className:'button secondary',disabled:transitional||!status||status.phase==='stopped',onClick:()=>act('stop')},'停止服务'),
         running&&h('a',{className:'button secondary',href:status.controlUrl,target:'_blank',rel:'noopener'},'独立窗口'),
         running&&h('button',{className:'button secondary',onClick:()=>setFullscreen(v=>!v)},fullscreen?'退出专注模式':'专注模式')),
-      h('p',{role:'status','aria-live':'polite',className:'sd-module-message'},status?.error||message||'切换 ScoreDeck 栏目会保留此页面与后台服务。关闭 ScoreDeck 会保存并停止模块。'),
+      h('p',{role:'status','aria-live':'polite',className:'sd-module-message'},status?.error||message||'切换 ScoreDeck 栏目会保留控制台草稿与后台服务。关闭 ScoreDeck 会保存并停止模块。'),
       status&&h('div',{className:'sd-module-output'},h('strong',null,'OBS 独立浏览器源'),h('code',null,status.outputUrl),h('button',{className:'button secondary',onClick:copy},'复制地址'),h('span',{className:'hint'},'1920 × 1080 · 60 fps')),
       h('div',{className:'sd-module-settings',id:'module-settings-'+id,hidden:!settingsOpen},
         h('div',{className:'sd-identity-settings'},h('h3',null,'主赛队伍同步'),
@@ -55,11 +55,11 @@ function sdIntegrationPanel({id,active}) {
           h('div',null,h('label',null,'HTTP 端口',h(sdTextField,{type:'number',min:1024,max:65535,value:port,disabled:running||transitional,onChange:e=>setPort(e.target.value)})),
             h('label',{className:'sd-module-check'},h(sdTextField,{type:'checkbox',checked:autoStart,disabled:running||transitional,onChange:e=>setAutoStart(e.target.checked)}),'随 ScoreDeck 自动启动'),
             h('button',{className:'button secondary',disabled:running||transitional||!status,onClick:()=>act('settings',{port:Number(port),autoStart})},'保存启动设置'),
-            h('p',{className:'hint'},id==='voicebridge'?'TS3 插件 UDP 固定使用 8790。首次使用在下方完整页面中填写 API 并安装插件。':'中继公网 IP、凭据、群组码及录制节点等设置在下方「会话设置」中。')),
+            h('p',{className:'hint'},id==='voicebridge'?'TS3 插件 UDP 固定使用 8790。首次使用在下方控制台中填写 API 并安装插件。':'中继公网 IP、凭据、群组码及录制节点等设置在下方「会话设置」中。')),
           h('div',null,h('label',null,'旧版程序 / 数据目录',h(sdTextField,{value:directory,onChange:e=>setDirectory(e.target.value),placeholder:id==='replay'?'D:/ProjectReplay/replay-data':'D:/VoiceBridge',disabled:running||transitional})),
             id==='voicebridge'&&h('label',{className:'sd-module-check'},h(sdTextField,{type:'checkbox',checked:includeRecordings,onChange:e=>setIncludeRecordings(e.target.checked)}),'同时导入默认 runtime 中的录音与历史（可能较大）'),
             h('div',{className:'sd-module-actions'},h('button',{className:'button secondary',disabled:running||transitional||!directory,onClick:()=>act('import',{directory,includeRecordings})},'导入填写的目录'),h('button',{className:'button secondary',disabled:running||transitional,onClick:()=>act('import',{browse:true,includeRecordings})},'选择目录并导入')),
             h('p',{className:'hint'},'请先退出旧版程序。原目录保留，已有集成数据会自动备份。自定义录音路径按原设置继续使用。'))),
         status&&h('p',{className:'hint'},'数据目录：',h('code',null,status.dataDir)),status&&h('p',{className:'hint'},'运行日志：',h('code',null,status.logFile))),
-      running?h('iframe',{ref:frame,key:status.generation,title:title+'完整控制台',className:'sd-module-frame',src:status.controlUrl,allow:'autoplay; clipboard-read; clipboard-write; speaker-selection; fullscreen'}):h('div',{className:'sd-module-empty'},h('h3',null,transitional?'正在处理，请稍候…':'启动模块后显示完整控制台'),h('p',null,'本页保留模块的全部功能和设置。'))));
+      running?h(sdNativeModule,{key:status.generation,id,controlUrl:status.controlUrl}):h('div',{className:'sd-module-empty'},h('h3',null,transitional?'正在处理，请稍候…':'启动模块后显示完整控制台'),h('p',null,'本页保留模块的全部功能和设置。'))));
 }

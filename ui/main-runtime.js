@@ -14901,9 +14901,9 @@ function sdMvpStyleTwo({ state: e, player: t, team: n, stats: r, match: i }) {
           translate: `0 ${sdMvpRange(a, 28, 68, 24, 0)}vh`,
           scale: sdMvpRange(a, 28, 68, 0.78, 1),
         },
-        children: t.avatar
+        children: t?.avatar
           ? (0, O.jsx)(`img`, { src: t.avatar, alt: t.id })
-          : (0, O.jsx)(`span`, { children: t.id.slice(0, 2).toUpperCase() }),
+          : (0, O.jsx)(`span`, { children: t?.id?.slice(0, 2).toUpperCase() || `—` }),
       }),
       (0, O.jsx)(`strong`, {
         className: `mvp2-player-id`,
@@ -14911,7 +14911,7 @@ function sdMvpStyleTwo({ state: e, player: t, team: n, stats: r, match: i }) {
           opacity: sdMvpRange(a, 52, 76, 0, 1),
           translate: `${sdMvpRange(a, 52, 82, 5, 0)}vw 0`,
         },
-        children: t.id,
+        children: t?.id || `待定`,
       }),
       (0, O.jsx)(`div`, {
         className: `mvp2-events`,
@@ -15041,7 +15041,7 @@ function St({ state: e, teamA: t, teamB: n, match: r }) {
                 className: `mvp-copy`,
                 children: [
                   (0, O.jsx)(`small`, { children: `MATCH MVP` }),
-                  (0, O.jsx)(`h2`, { children: a?.playerId || e.mvp.playerId }),
+                  (0, O.jsx)(`h2`, { children: s?.id || `待定` }),
                   (0, O.jsx)(`strong`, {
                     children: c
                       ? `${c.kills} / ${c.deaths} / ${c.assists} · ${(c.ratingMaps ? c.averageRating.toFixed(2) : `—`)} RATING`
@@ -16046,7 +16046,7 @@ function Wt({ state: e, setState: t, meta: n, connection: r }) {
                 children: [
                   (0, O.jsx)(`strong`, { children: `ScoreDeck` }),
                   (0, O.jsx)(`span`, {
-                    children: `导播工作台 · 2.18.12`,
+                    children: `导播工作台 · 2.19.2`,
                   }),
                 ],
               }),
@@ -16171,7 +16171,7 @@ function Wt({ state: e, setState: t, meta: n, connection: r }) {
           i === `schedule` && (0, O.jsx)(Yt, { state: e, commit: d }),
           i === `post` && (0, O.jsx)(Zt, { state: e, commit: d }),
           i === `outputs` && (0, O.jsx)(Qt, { state: e, commit: d, meta: n }),
-          i === `sync` && (0,O.jsx)(sdRecoveryPanel,{state:e}),
+          i === `sync` && (0,O.jsxs)(l.Fragment,{children:[O.jsx(sdWebSyncPanel,{}),O.jsx(sdRecoveryPanel,{state:e})]}),
           i === `settings` && (0, O.jsx)(en, { state: e, commit: d, meta: n }),
         ],
       }),
@@ -18606,9 +18606,9 @@ function sdSponsorSettings({state}) {
   }catch(e){setError(e.message);}finally{setBusy(-1);}};
   return O.jsxs('section',{className:'panel sd-sponsors-settings',children:[
     O.jsx('h2',{children:'赞助商'}),
-    O.jsx('p',{className:'hint',children:'底部从左到右 4 个固定栏位，1920×1080 输出时每栏 400×100 像素。空位透明，图片随赛事保存。'}),
+    O.jsx('p',{className:'hint',children:'底部每次展示 4 个栏位，1920×1080 输出时每栏 400×100 像素。超过 4 个时每 8 秒切换一组；空位透明，图片随赛事保存。'}),
     O.jsxs('label',{children:[O.jsx(sdTextField,{type:'checkbox',checked:config.enabled!==false,onChange:e=>save(null,e.target.checked)}),' 显示赞助商']}),
-    O.jsx('div',{className:'sd-sponsors-grid',children:Array.from({length:4},(_,index)=>{const slot=config.slots[index]||{};return O.jsxs('div',{className:'sd-sponsor-card',children:[
+    O.jsx('div',{className:'sd-sponsors-grid',children:Array.from({length:Math.max(4,config.slots.length)},(_,index)=>{const slot=config.slots[index]||{};return O.jsxs('div',{className:'sd-sponsor-card',children:[
       O.jsx('h3',{children:'栏位 '+(index+1)}),
       O.jsx('div',{className:'sd-sponsor-preview',children:slot.logoImage?O.jsx('img',{src:slot.logoImage,alt:'赞助商 '+(index+1),style:{objectFit:slot.fit==='fill'?'fill':'cover'}}):'未导入图片'}),
       O.jsxs('label',{children:['导入图片',O.jsx(sdTextField,{type:'file',accept:'image/png,image/jpeg,image/webp',disabled:busy!==-1,onChange:e=>{upload(index,e.target.files[0]);e.target.value='';}})]}),
@@ -18627,6 +18627,7 @@ function en({ state: e, commit: t, meta: n }) {
   return (0, O.jsxs)(`div`, {
     className: `workspace settings-workspace`,
     children: [
+      O.jsx(sdWebSyncPanel,{}),
       O.jsx(sdFlowEditor,{state:e}),
       O.jsx(sdMinimalPreset,{commit:t}),
       O.jsx(sdSponsorSettings,{state:e}),
@@ -18986,9 +18987,9 @@ function rn({ player: e, team: t, large: n = !1, hero: r = !1 }) {
   return (0, O.jsx)(`span`, {
     className: `player-avatar ${n ? `large` : ``} ${r ? `hero` : ``}`,
     style: { "--team-color": t.color },
-    children: e.avatar
+    children: e?.avatar
       ? (0, O.jsx)(`img`, { src: e.avatar, alt: e.id })
-      : e.id.slice(0, 2).toUpperCase(),
+      : e?.id?.slice(0, 2).toUpperCase() || `—`,
   });
 }
 const SDHooks=l;

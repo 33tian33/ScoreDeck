@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--base', type=pathlib.Path, required=True)
 args = parser.parse_args()
 version = json.loads((root / 'package.json').read_text(encoding='utf-8'))['version']
+replay_version = json.loads((root / 'modules/replay/UPSTREAM.json').read_text(encoding='utf-8'))['tag'].removeprefix('v')
 name = f'ScoreDeck-CS-{version}-Windows-x64-Portable'
 target = root / 'release' / f'{name}.zip'
 assert args.base.resolve() != target.resolve()
@@ -21,8 +22,8 @@ for rel in ['modules/replay/ProjectReplay.exe', 'modules/replay/replay-source.ex
 for rel in ['README.md', f'README-{version}.md', f'VERIFICATION-{version}.md', 'VERSION.txt']:
     updates[rel] = (root / rel).read_bytes()
 updates['START-HERE.txt'] = (f'ScoreDeck CS {version}\n完整解压后运行 ScoreDeck CS.exe。\n'
-    'Replay 已升级为 0.2.6，Linux 录制端请同步升级；中继协议不变。\n'
-    'RadarHUD 新增清除缓存，缓存最多保存两小时。\n'
+    f'Replay 已升级为 {replay_version}，Linux 录制端请同步升级。\n'
+    '网页赛事同步点击“开始同步”一次即可，切换栏目或刷新页面可恢复后台进度。\n'
     '升级前保留旧目录中的 ScoreDeck CS Portable Data。\n').encode('utf-8')
 hashes = {}
 with zipfile.ZipFile(args.base) as src, zipfile.ZipFile(target, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6) as dst:
@@ -42,7 +43,7 @@ with zipfile.ZipFile(args.base) as src, zipfile.ZipFile(target, 'w', compression
     manifest = {'version': version, 'basePortable': args.base.name,
         'sourceCommit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
         'sourceIncludesWorkingTreeChanges': bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=root).strip()),
-        'replay': json.loads((root / 'modules/replay/UPSTREAM.json').read_text()),
+        'replay': json.loads((root / 'modules/replay/UPSTREAM.json').read_text(encoding='utf-8')),
         'replayExeSha256': hashes['resources/app/modules/replay/ProjectReplay.exe'], 'files': len(hashes)}
     write(f'BUILD-MANIFEST-{version}.json', json.dumps(manifest, ensure_ascii=False, indent=2).encode())
     dst.writestr(name + '/PACKAGE-SHA256.json', json.dumps(hashes, indent=2))

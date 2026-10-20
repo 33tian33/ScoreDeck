@@ -156,8 +156,8 @@ function normalizeMapDetails(match) {
       ...detail, map: String(detail.map || score.map || `MAP ${index + 1}`),
       a: detail.a ?? score.a ?? null,
       b: detail.b ?? score.b ?? null,
-      teamA: Array.isArray(detail.teamA) ? detail.teamA.slice(0, 7).map(normalizePlayerMapStat) : [],
-      teamB: Array.isArray(detail.teamB) ? detail.teamB.slice(0, 7).map(normalizePlayerMapStat) : [],
+      teamA: Array.isArray(detail.teamA) ? (match.webSync?.mode==='snapshot'?detail.teamA:detail.teamA.slice(0, 7)).map(normalizePlayerMapStat) : [],
+      teamB: Array.isArray(detail.teamB) ? (match.webSync?.mode==='snapshot'?detail.teamB:detail.teamB.slice(0, 7)).map(normalizePlayerMapStat) : [],
     };
   });
 }
@@ -185,7 +185,7 @@ function migrateStateRaw(input) {
     ...input,
     customPanels: require("./custom-panels.cjs").normalize(input.customPanels),
     halftime: require("./halftime.cjs").normalize(input.halftime),
-    sponsors: {enabled: input.sponsors?.enabled !== false, slots: Array.from({length:4},(_,i)=>({logoImage:typeof input.sponsors?.slots?.[i]?.logoImage==='string'?input.sponsors.slots[i].logoImage:'',fit:input.sponsors?.slots?.[i]?.fit==='fill'?'fill':'cover'}))},
+    sponsors: {enabled: input.sponsors?.enabled !== false, slots: Array.from({length:Math.max(4,input.sponsors?.slots?.length||0)},(_,i)=>({...input.sponsors?.slots?.[i],logoImage:typeof input.sponsors?.slots?.[i]?.logoImage==='string'?input.sponsors.slots[i].logoImage:'',fit:input.sponsors?.slots?.[i]?.fit==='fill'?'fill':'cover'}))},
     schemaVersion: 19,
     revision: Math.max(1, Number(input.revision) || defaults.revision),
     tournament: {
@@ -271,7 +271,7 @@ function migrateStateRaw(input) {
       we: String(input.mvp?.we || "").slice(0, 24),
     },
     teams: (Array.isArray(input.teams) ? input.teams : defaults.teams).map((team, teamIndex) => {
-      const players = Array.from({ length: 7 }, (_, index) => ({
+      const players = Array.from({ length: team.webSync?.mode==='snapshot'?(team.players?.length||0):7 }, (_, index) => ({
         ...(defaults.teams[teamIndex]?.players[index] || defaults.teams[0].players[index]),
         ...(team.players?.[index] || {}),
         steamId: typeof team.players?.[index]?.steamId === "string" ? team.players[index].steamId.normalize("NFKC").trim() : "",

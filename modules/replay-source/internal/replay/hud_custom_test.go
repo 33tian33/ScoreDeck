@@ -10,7 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func TestCustomHUDValidationAndPersistence(t *testing.T) {
+func TestCustomHUDValidationAndSessionOverride(t *testing.T) {
 	for _, h := range []HUDSettings{{Mode: "other"}, {Mode: "url", URL: "file:///tmp/hud.html"}, {Mode: "url", URL: "javascript:alert(1)"}, {Mode: "url", URL: "http://user:pass@localhost"}, {Mode: "source"}, {Mode: "source", Source: "Project Replay Team HUD"}, {Width: 99999}} {
 		if h.validate() == nil {
 			t.Fatal("accepted", h)
@@ -21,14 +21,17 @@ func TestCustomHUDValidationAndPersistence(t *testing.T) {
 	if w := request(t, a, "POST", "/api/hud/settings", h, "", ""); w.Code != 200 {
 		t.Fatal(w.Body.String())
 	}
+	if a.s.HUD.URL != h.URL || a.s.HUD.Mode != "url" {
+		t.Fatal("custom HUD must work for the current session", a.s.HUD)
+	}
 	a.Close()
 	b, err := New(a.dir, "agent")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer b.Close()
-	if b.s.HUD.URL != h.URL || b.s.HUD.KeepNative || b.s.HUD.Width != 1920 {
-		t.Fatal("settings not persisted", b.s.HUD)
+	if b.s.HUD.Mode != "astra" || b.s.HUD.URL != "" || b.s.HUD.KeepNative || b.s.HUD.Width != 1920 {
+		t.Fatal("restart must default to Astra", b.s.HUD)
 	}
 	b.active = true
 	if w := request(t, b, "POST", "/api/hud/settings", HUDSettings{}, "", ""); w.Code != 400 {
@@ -123,13 +126,18 @@ func TestCustomHUDSwitching(t *testing.T) {
 		}
 	}
 	apply(HUDSettings{})
+	mu.Lock()
+	if !enabled[ids["Project Replay Astra HUD"]] || enabled[1] {
+		t.Error("default Astra did not disable old OpenHUD")
+	}
+	mu.Unlock()
 	apply(HUDSettings{Mode: "url", URL: "http://127.0.0.1:1350/recorder", Width: 1280, Height: 720})
 	mu.Lock()
-	if enabled[ids["Project Replay Team HUD"]] || settings["Project Replay Custom HUD"]["url"] != "http://127.0.0.1:1350/recorder" || number(transforms[ids["Project Replay Custom HUD"]], "scaleX") != 1.5 {
+	if enabled[ids["Project Replay Astra HUD"]] || settings["Project Replay Custom HUD"]["url"] != "http://127.0.0.1:1350/recorder" || number(transforms[ids["Project Replay Custom HUD"]], "scaleX") != 1.5 {
 		t.Error("custom browser install or builtin hiding failed")
 	}
 	mu.Unlock()
-	apply(HUDSettings{Mode: "source", Source: "OpenHUD Broadcast", KeepNative: true})
+	apply(HUDSettings{Mode: "openhud", KeepNative: true})
 	mu.Lock()
 	if !enabled[1] || settings["OpenHUD Broadcast"] != nil || transforms[1] != nil || enabled[ids["Project Replay Custom HUD"]] {
 		t.Error("existing source mutated or prior overlay still visible")

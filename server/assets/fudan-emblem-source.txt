@@ -1,0 +1,4 @@
+Standalone Fudan University emblem, downloaded without modification.
+https://www.urongda.com/images/normal/medium/fudan-university-logo-1024px.png
+Reference: https://www.fudan.edu.cn/bsxt/
+Replaces only the known upstream guidelines-sheet hash; future upstream corrections remain authoritative.

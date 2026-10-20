@@ -5,6 +5,7 @@ go 1.25.0
 require github.com/gorilla/websocket v1.5.3
 
 require golang.org/x/image v0.35.0 // indirect
+require github.com/jezek/xgb v1.3.1
 
 require (
 	github.com/golang/geo v0.0.0-20230421003525-6adc56603217 // indirect

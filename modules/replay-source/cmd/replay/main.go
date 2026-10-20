@@ -59,6 +59,7 @@ func main() {
 		originURL, _ := url.Parse(*embedOrigin)
 		app.EmbedOrigin = "http://127.0.0.1:" + originURL.Port() + " http://localhost:" + originURL.Port()
 	}
+	app.StartPresentation(ln.Addr().String())
 	app.Start()
 	_, port, _ := net.SplitHostPort(ln.Addr().String())
 	address := "http://127.0.0.1:" + port + "/"

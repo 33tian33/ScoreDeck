@@ -14901,9 +14901,9 @@ function sdMvpStyleTwo({ state: e, player: t, team: n, stats: r, match: i }) {
           translate: `0 ${sdMvpRange(a, 28, 68, 24, 0)}vh`,
           scale: sdMvpRange(a, 28, 68, 0.78, 1),
         },
-        children: t.avatar
+        children: t?.avatar
           ? (0, O.jsx)(`img`, { src: t.avatar, alt: t.id })
-          : (0, O.jsx)(`span`, { children: t.id.slice(0, 2).toUpperCase() }),
+          : (0, O.jsx)(`span`, { children: t?.id?.slice(0, 2).toUpperCase() || `—` }),
       }),
       (0, O.jsx)(`strong`, {
         className: `mvp2-player-id`,
@@ -14911,7 +14911,7 @@ function sdMvpStyleTwo({ state: e, player: t, team: n, stats: r, match: i }) {
           opacity: sdMvpRange(a, 52, 76, 0, 1),
           translate: `${sdMvpRange(a, 52, 82, 5, 0)}vw 0`,
         },
-        children: t.id,
+        children: t?.id || `待定`,
       }),
       (0, O.jsx)(`div`, {
         className: `mvp2-events`,
@@ -15041,7 +15041,7 @@ function St({ state: e, teamA: t, teamB: n, match: r }) {
                 className: `mvp-copy`,
                 children: [
                   (0, O.jsx)(`small`, { children: `MATCH MVP` }),
-                  (0, O.jsx)(`h2`, { children: a?.playerId || e.mvp.playerId }),
+                  (0, O.jsx)(`h2`, { children: s?.id || `待定` }),
                   (0, O.jsx)(`strong`, {
                     children: c
                       ? `${c.kills} / ${c.deaths} / ${c.assists} · ${(c.ratingMaps ? c.averageRating.toFixed(2) : `—`)} RATING`
@@ -16046,7 +16046,7 @@ function Wt({ state: e, setState: t, meta: n, connection: r }) {
                 children: [
                   (0, O.jsx)(`strong`, { children: `ScoreDeck` }),
                   (0, O.jsx)(`span`, {
-                    children: `导播工作台 · 2.18.12`,
+                    children: `导播工作台 · 2.19.2`,
                   }),
                 ],
               }),
@@ -16171,7 +16171,7 @@ function Wt({ state: e, setState: t, meta: n, connection: r }) {
           i === `schedule` && (0, O.jsx)(Yt, { state: e, commit: d }),
           i === `post` && (0, O.jsx)(Zt, { state: e, commit: d }),
           i === `outputs` && (0, O.jsx)(Qt, { state: e, commit: d, meta: n }),
-          i === `sync` && (0,O.jsx)(sdRecoveryPanel,{state:e}),
+          i === `sync` && (0,O.jsxs)(l.Fragment,{children:[O.jsx(sdWebSyncPanel,{}),O.jsx(sdRecoveryPanel,{state:e})]}),
           i === `settings` && (0, O.jsx)(en, { state: e, commit: d, meta: n }),
         ],
       }),
@@ -18606,9 +18606,9 @@ function sdSponsorSettings({state}) {
   }catch(e){setError(e.message);}finally{setBusy(-1);}};
   return O.jsxs('section',{className:'panel sd-sponsors-settings',children:[
     O.jsx('h2',{children:'赞助商'}),
-    O.jsx('p',{className:'hint',children:'底部从左到右 4 个固定栏位，1920×1080 输出时每栏 400×100 像素。空位透明，图片随赛事保存。'}),
+    O.jsx('p',{className:'hint',children:'底部每次展示 4 个栏位，1920×1080 输出时每栏 400×100 像素。超过 4 个时每 8 秒切换一组；空位透明，图片随赛事保存。'}),
     O.jsxs('label',{children:[O.jsx(sdTextField,{type:'checkbox',checked:config.enabled!==false,onChange:e=>save(null,e.target.checked)}),' 显示赞助商']}),
-    O.jsx('div',{className:'sd-sponsors-grid',children:Array.from({length:4},(_,index)=>{const slot=config.slots[index]||{};return O.jsxs('div',{className:'sd-sponsor-card',children:[
+    O.jsx('div',{className:'sd-sponsors-grid',children:Array.from({length:Math.max(4,config.slots.length)},(_,index)=>{const slot=config.slots[index]||{};return O.jsxs('div',{className:'sd-sponsor-card',children:[
       O.jsx('h3',{children:'栏位 '+(index+1)}),
       O.jsx('div',{className:'sd-sponsor-preview',children:slot.logoImage?O.jsx('img',{src:slot.logoImage,alt:'赞助商 '+(index+1),style:{objectFit:slot.fit==='fill'?'fill':'cover'}}):'未导入图片'}),
       O.jsxs('label',{children:['导入图片',O.jsx(sdTextField,{type:'file',accept:'image/png,image/jpeg,image/webp',disabled:busy!==-1,onChange:e=>{upload(index,e.target.files[0]);e.target.value='';}})]}),
@@ -18627,6 +18627,7 @@ function en({ state: e, commit: t, meta: n }) {
   return (0, O.jsxs)(`div`, {
     className: `workspace settings-workspace`,
     children: [
+      O.jsx(sdWebSyncPanel,{}),
       O.jsx(sdFlowEditor,{state:e}),
       O.jsx(sdMinimalPreset,{commit:t}),
       O.jsx(sdSponsorSettings,{state:e}),
@@ -18986,9 +18987,9 @@ function rn({ player: e, team: t, large: n = !1, hero: r = !1 }) {
   return (0, O.jsx)(`span`, {
     className: `player-avatar ${n ? `large` : ``} ${r ? `hero` : ``}`,
     style: { "--team-color": t.color },
-    children: e.avatar
+    children: e?.avatar
       ? (0, O.jsx)(`img`, { src: e.avatar, alt: e.id })
-      : e.id.slice(0, 2).toUpperCase(),
+      : e?.id?.slice(0, 2).toUpperCase() || `—`,
   });
 }
 const SDHooks=l;
@@ -19026,6 +19027,61 @@ function sdRadarPanel() {
 }
 
 // SCOREDECK INTEGRATION PANEL
+// Mount the complete module controls in the application's DOM, with scoped
+// styles, DOM queries and managed resources. No nested browsing context.
+async function sdMountNativeModule(host,id,controlUrl,signal,reload){
+ const root=host.shadowRoot||host.attachShadow({mode:'open'}),base='/native-modules/'+id;
+ const cleanup=[],timers=new Set(),intervals=new Set(),frames=new Set(),connections=new Set();
+ let disposed=false;
+ const route=value=>{if(typeof value!=='string'||!value||value.startsWith(base+'/')||/^(data:|blob:|#)/.test(value))return value;const u=new URL(value,controlUrl);if(u.origin!==new URL(controlUrl).origin)return value;return base+u.pathname+u.search+u.hash;};
+ const stop=()=>{if(disposed)return;disposed=true;for(const f of cleanup)try{f();}catch{}for(const t of timers)clearTimeout(t);for(const t of intervals)clearInterval(t);for(const f of frames)cancelAnimationFrame(f);for(const c of connections)try{c.close()?.catch?.(()=>{});}catch{}for(const media of root.querySelectorAll('audio,video')){media.pause();media.removeAttribute('src');media.load();}root.replaceChildren();};
+ signal.addEventListener('abort',stop,{once:true});
+ const abortQuietly=error=>{if(signal.aborted)return new Promise(()=>{});throw error;};
+ const fetchLocal=(url,options={})=>{const routed=route(url),headers=new Headers(typeof routed==='string'&&routed.startsWith(base+'/')?(window.SDClient?.authHeaders?.()||{}):{});new Headers(options.headers).forEach((value,key)=>headers.set(key,value));return fetch(routed,{...options,headers,signal:options.signal?AbortSignal.any([signal,options.signal]):signal}).then(response=>new Proxy(response,{get(target,key){const value=Reflect.get(target,key,target);if(['text','json','blob','arrayBuffer'].includes(key))return (...args)=>value.apply(target,args).catch(abortQuietly);return typeof value==='function'?value.bind(target):value;}})).catch(abortQuietly);};
+ const source=await fetchLocal('/').then(r=>{if(!r.ok)throw Error('控制台加载失败：'+r.status);return r.text();});
+ if(disposed)return stop;
+ const parsed=new DOMParser().parseFromString(source,'text/html');
+ const scripts=[...parsed.querySelectorAll('script')].map(s=>({src:s.getAttribute('src'),text:s.textContent}));parsed.querySelectorAll('script').forEach(s=>s.remove());
+ const css=await Promise.all([...parsed.querySelectorAll('link[rel="stylesheet"]')].map(async link=>{const url=link.getAttribute('href');const text=await fetchLocal(url).then(r=>{if(!r.ok)throw Error('样式加载失败：'+url);return r.text();});return text.replace(/url\((['"]?)([^)'"\s]+)\1\)/g,(_,q,v)=>'url('+JSON.stringify(route(new URL(v,new URL(url,controlUrl)).href))+')').replace(/:root\b/g,':host').replace(/\bbody\b/g,'.sd-native-body').replace(/\bhtml\b/g,':host');}));
+ if(disposed)return stop;
+ const style=document.createElement('style');style.textContent=':host{display:block;min-height:620px;color-scheme:dark}.sd-native-body{margin:0;min-height:620px}'+css.join('\n');
+ const body=document.createElement('div');body.className='sd-native-body '+parsed.body.className;body.innerHTML=parsed.body.innerHTML;
+ root.replaceChildren(style,body);
+ function prepare(el){if(!(el instanceof Element))return el;for(const attr of ['src','href','poster']){if(el.hasAttribute(attr)){const value=el.getAttribute(attr);el.setAttribute(attr,attr==='href'&&el instanceof HTMLAnchorElement&&!value.startsWith('#')?new URL(value,controlUrl).href:route(value));}}
+  if(el instanceof HTMLMediaElement){const descriptor=Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype,'src');Object.defineProperty(el,'src',{configurable:true,get(){return descriptor.get.call(this)},set(v){descriptor.set.call(this,route(v))}});}
+  return el;
+ }
+ root.querySelectorAll('*').forEach(prepare);
+ const observer=new MutationObserver(records=>{for(const record of records)for(const node of record.addedNodes)if(node instanceof Element){prepare(node);node.querySelectorAll('*').forEach(prepare);}});observer.observe(body,{childList:true,subtree:true});cleanup.push(()=>observer.disconnect());
+ const listen=(target,type,fn,options)=>{target.addEventListener(type,fn,options);cleanup.push(()=>target.removeEventListener(type,fn,options));};
+ const doc={querySelector:s=>root.querySelector(s),querySelectorAll:s=>root.querySelectorAll(s),getElementById:s=>root.getElementById(s),createElement:(...args)=>prepare(document.createElement(...args)),addEventListener:(...args)=>listen(root,...args),removeEventListener:(...args)=>root.removeEventListener(...args),body,documentElement:host,get activeElement(){return root.activeElement}};
+ const scopedWindow={addEventListener:(type,fn,options)=>{if(type==='message')return;if(type==='pagehide'||type==='beforeunload'){cleanup.push(()=>fn(new Event(type)));return;}listen(window,type,fn,options);},removeEventListener:(...args)=>window.removeEventListener(...args)};
+ const scopedLocation={...new URL(controlUrl),origin:new URL(controlUrl).origin,host:new URL(controlUrl).host,protocol:new URL(controlUrl).protocol,reload};
+ function socketURL(value){const u=new URL(value,controlUrl);return location.origin.replace(/^http/,'ws')+base+u.pathname+u.search;}
+ const EventStream=new Proxy(EventSource,{construct(Target,args){const instance=new Target(route(args[0]),args[1]);connections.add(instance);return instance;}});
+ const Socket=new Proxy(WebSocket,{construct(Target,args){const instance=new Target(socketURL(args[0]),args[1]);connections.add(instance);return instance;}});
+ const Context=window.AudioContext&&new Proxy(AudioContext,{construct(Target,args){const instance=new Target(...args);connections.add(instance);return instance;}});
+ const mediaDevices=navigator.mediaDevices&&new Proxy(navigator.mediaDevices,{get(target,key){if(key==='addEventListener')return (...args)=>listen(target,...args);const value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value;}});
+ const nav=new Proxy(navigator,{get(target,key){if(key==='mediaDevices')return mediaDevices;const value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value;}});
+ const scopedTimeout=(fn,ms,...args)=>{const t=setTimeout(()=>{timers.delete(t);if(!disposed)fn(...args);},ms);timers.add(t);return t;};
+ const scopedInterval=(fn,ms,...args)=>{const t=setInterval(()=>{if(!disposed)fn(...args);},ms);intervals.add(t);return t;};
+ const names=['document','window','parent','location','fetch','EventSource','WebSocket','AudioContext','navigator','setTimeout','clearTimeout','setInterval','clearInterval','requestAnimationFrame','cancelAnimationFrame'];
+ const values=[doc,scopedWindow,scopedWindow,scopedLocation,fetchLocal,EventStream,Socket,Context,nav,scopedTimeout,t=>{clearTimeout(t);timers.delete(t)},scopedInterval,t=>{clearInterval(t);intervals.delete(t)},fn=>{const f=requestAnimationFrame(t=>{frames.delete(f);if(!disposed)fn(t)});frames.add(f);return f},f=>{cancelAnimationFrame(f);frames.delete(f)}];
+ for(const script of scripts){const text=script.src?await fetchLocal(script.src).then(r=>{if(!r.ok)throw Error('控制组件加载失败：'+script.src);return r.text();}):script.text;if(disposed)return stop;new Function(...names,'"use strict";\n'+text+'\n//# sourceURL=scoredeck-native-'+id+'-'+(script.src||'inline'))(...values);}
+ host.dataset.ready='true';
+ host.openSettings=()=>{if(id==='replay')root.querySelector('#settings-btn')?.click();else{for(const panel of root.querySelectorAll('details.setup-panel'))panel.open=true;root.querySelector('#apiPanel')?.scrollIntoView({behavior:'smooth',block:'start'});}};
+ cleanup.push(()=>{delete host.openSettings;delete host.dataset.ready;});return stop;
+}
+function sdNativeModule({id,controlUrl}){
+ const host=l.useRef(null),[error,setError]=l.useState(''),[revision,setRevision]=l.useState(0);
+ l.useEffect(()=>{const controller=new AbortController();setError('');sdMountNativeModule(host.current,id,controlUrl,controller.signal,()=>setRevision(v=>v+1)).catch(e=>{if(!controller.signal.aborted){controller.abort();setError(e.message);}});return()=>controller.abort();},[id,controlUrl,revision]);
+ return l.createElement(l.Fragment,null,error&&l.createElement('p',{role:'alert'},error,l.createElement('button',{onClick:()=>setRevision(v=>v+1)},'重试')),l.createElement('div',{ref:host,className:'sd-native-module','data-native-module':id}));
+}
+
+
+
+
+
 // Included verbatim in the application bundle by scripts/build-integrations.cjs.
 function sdIntegrationPanel({id,active}) {
   const h=l.createElement;
@@ -19034,8 +19090,8 @@ function sdIntegrationPanel({id,active}) {
   const [port,setPort]=l.useState(''),[autoStart,setAutoStart]=l.useState(false);
   const [directory,setDirectory]=l.useState(''),[includeRecordings,setIncludeRecordings]=l.useState(false);
   const [fullscreen,setFullscreen]=l.useState(false),[settingsOpen,setSettingsOpen]=l.useState(false);
-  const frame=l.useRef(null),identityPending=l.useRef(false);
-  const openModuleSettings=()=>{if(status?.phase==='running')frame.current?.contentWindow?.postMessage({type:'scoredeck-open-settings'},new URL(status.controlUrl).origin);};
+  const panel=l.useRef(null),identityPending=l.useRef(false);
+  const openModuleSettings=()=>panel.current?.querySelector('[data-native-module]')?.openSettings?.();
   const local=['127.0.0.1','localhost','::1'].includes(location.hostname),title=id==='replay'?'Replay 回放':'VoiceBridge 语音';
   const labels={stopped:'已停止',starting:'正在启动',running:'运行中',restarting:'正在重启',stopping:'正在保存并退出',error:'启动或运行异常'};
   l.useEffect(()=>{if(active)setVisited(true);else setFullscreen(false);},[active]);
@@ -19055,8 +19111,8 @@ function sdIntegrationPanel({id,active}) {
   const copy=async()=>{try{await navigator.clipboard.writeText(status.outputUrl);setMessage('已复制 OBS 浏览器源地址')}catch{setMessage('复制失败，请选中下方地址手动复制')}};
   if(!visited&&!active)return null;
   const transitional=busy||status?.busy||['starting','stopping','restarting'].includes(status?.phase),running=status?.phase==='running';
-  return h('section',{className:'panel sd-integration-panel'+(fullscreen?' sd-integration-fullscreen':''),hidden:!active,'data-module':id},
-    h('div',{className:'sd-integration-head'},h('div',null,h('p',{className:'eyebrow'},'BROADCAST MODULE'),h('h2',null,title),h('p',{className:'hint'},id==='replay'?'Project Replay 0.2.1 · 完整 Windows 导播台':'VoiceBridge 0.6.4-SD · 完整双频道语音导播台')),
+  return h('section',{ref:panel,className:'panel sd-integration-panel'+(fullscreen?' sd-integration-fullscreen':''),hidden:!active,'data-module':id},
+    h('div',{className:'sd-integration-head'},h('div',null,h('p',{className:'eyebrow'},'BROADCAST MODULE'),h('h2',null,title),h('p',{className:'hint'},id==='replay'?'Project Replay '+(status?.version||'')+' · 本地回放导播台':'VoiceBridge '+(status?.version||'')+' · 本地双频道语音导播台')),
       h('div',{className:'sd-module-actions'},h('span',{className:'sd-module-status '+(running?'running':'')},labels[status?.phase]||'等待连接'),h('button',{className:'button secondary','aria-expanded':settingsOpen,'aria-controls':'module-settings-'+id,onClick:()=>{setSettingsOpen(!settingsOpen);if(!settingsOpen)openModuleSettings();}},'设置'))),
     !local?h('p',{className:'hint'},'此模块连接本机 TS3、录制服务及 OBS，请在运行 ScoreDeck 的电脑上操作。远程赛事控制仍使用原有栏目。'):
     h(l.Fragment,null,
@@ -19067,7 +19123,7 @@ function sdIntegrationPanel({id,active}) {
         h('button',{className:'button secondary',disabled:transitional||!status||status.phase==='stopped',onClick:()=>act('stop')},'停止服务'),
         running&&h('a',{className:'button secondary',href:status.controlUrl,target:'_blank',rel:'noopener'},'独立窗口'),
         running&&h('button',{className:'button secondary',onClick:()=>setFullscreen(v=>!v)},fullscreen?'退出专注模式':'专注模式')),
-      h('p',{role:'status','aria-live':'polite',className:'sd-module-message'},status?.error||message||'切换 ScoreDeck 栏目会保留此页面与后台服务。关闭 ScoreDeck 会保存并停止模块。'),
+      h('p',{role:'status','aria-live':'polite',className:'sd-module-message'},status?.error||message||'切换 ScoreDeck 栏目会保留控制台草稿与后台服务。关闭 ScoreDeck 会保存并停止模块。'),
       status&&h('div',{className:'sd-module-output'},h('strong',null,'OBS 独立浏览器源'),h('code',null,status.outputUrl),h('button',{className:'button secondary',onClick:copy},'复制地址'),h('span',{className:'hint'},'1920 × 1080 · 60 fps')),
       h('div',{className:'sd-module-settings',id:'module-settings-'+id,hidden:!settingsOpen},
         h('div',{className:'sd-identity-settings'},h('h3',null,'主赛队伍同步'),
@@ -19083,13 +19139,13 @@ function sdIntegrationPanel({id,active}) {
           h('div',null,h('label',null,'HTTP 端口',h(sdTextField,{type:'number',min:1024,max:65535,value:port,disabled:running||transitional,onChange:e=>setPort(e.target.value)})),
             h('label',{className:'sd-module-check'},h(sdTextField,{type:'checkbox',checked:autoStart,disabled:running||transitional,onChange:e=>setAutoStart(e.target.checked)}),'随 ScoreDeck 自动启动'),
             h('button',{className:'button secondary',disabled:running||transitional||!status,onClick:()=>act('settings',{port:Number(port),autoStart})},'保存启动设置'),
-            h('p',{className:'hint'},id==='voicebridge'?'TS3 插件 UDP 固定使用 8790。首次使用在下方完整页面中填写 API 并安装插件。':'中继公网 IP、凭据、群组码及录制节点等设置在下方「会话设置」中。')),
+            h('p',{className:'hint'},id==='voicebridge'?'TS3 插件 UDP 固定使用 8790。首次使用在下方控制台中填写 API 并安装插件。':'中继公网 IP、凭据、群组码及录制节点等设置在下方「会话设置」中。')),
           h('div',null,h('label',null,'旧版程序 / 数据目录',h(sdTextField,{value:directory,onChange:e=>setDirectory(e.target.value),placeholder:id==='replay'?'D:/ProjectReplay/replay-data':'D:/VoiceBridge',disabled:running||transitional})),
             id==='voicebridge'&&h('label',{className:'sd-module-check'},h(sdTextField,{type:'checkbox',checked:includeRecordings,onChange:e=>setIncludeRecordings(e.target.checked)}),'同时导入默认 runtime 中的录音与历史（可能较大）'),
             h('div',{className:'sd-module-actions'},h('button',{className:'button secondary',disabled:running||transitional||!directory,onClick:()=>act('import',{directory,includeRecordings})},'导入填写的目录'),h('button',{className:'button secondary',disabled:running||transitional,onClick:()=>act('import',{browse:true,includeRecordings})},'选择目录并导入')),
             h('p',{className:'hint'},'请先退出旧版程序。原目录保留，已有集成数据会自动备份。自定义录音路径按原设置继续使用。'))),
         status&&h('p',{className:'hint'},'数据目录：',h('code',null,status.dataDir)),status&&h('p',{className:'hint'},'运行日志：',h('code',null,status.logFile))),
-      running?h('iframe',{ref:frame,key:status.generation,title:title+'完整控制台',className:'sd-module-frame',src:status.controlUrl,allow:'autoplay; clipboard-read; clipboard-write; speaker-selection; fullscreen'}):h('div',{className:'sd-module-empty'},h('h3',null,transitional?'正在处理，请稍候…':'启动模块后显示完整控制台'),h('p',null,'本页保留模块的全部功能和设置。'))));
+      running?h(sdNativeModule,{key:status.generation,id,controlUrl:status.controlUrl}):h('div',{className:'sd-module-empty'},h('h3',null,transitional?'正在处理，请稍候…':'启动模块后显示完整控制台'),h('p',null,'本页保留模块的全部功能和设置。'))));
 }
 
 // SCOREDECK TOURNAMENT FLOW
@@ -19323,7 +19379,7 @@ function sdFlowAdaptive({content,children}){
 
 const sdMaps=['dust2','mirage','inferno','nuke','ancient','anubis','overpass','train','vertigo','cache'];
 const sdMapKey=v=>String(v||'').toLowerCase().replace(/^.*\//,'').replace(/^de_/,'').replace(/[^a-z0-9]/g,'').replace(/^dustii$/,'dust2');
-const sdBPTemplate=(bo,first='A')=>({1:['A:ban','B:ban','A:ban','B:ban','A:ban','B:ban',':decider'],2:['A:ban','B:ban','A:ban','B:ban','A:pick','B:pick',':unused'],3:['A:ban','B:ban','A:pick','B:pick','A:ban','B:ban',':decider'],5:['A:ban','B:ban','A:pick','B:pick','A:pick','B:pick',':decider']}[bo]||[]).map(x=>{const [team,action]=x.split(':');return {team:first==='B'&&team?(team==='A'?'B':'A'):team,action,map:''};});
+const sdBPTemplate=(bo,first='A')=>({1:['A:ban','B:ban','A:ban','B:ban','A:ban','B:ban',':decider'],2:['A:ban','B:ban','B:ban','A:ban','A:pick','B:pick',':unused'],3:['A:ban','B:ban','A:pick','B:pick','A:ban','B:ban',':decider'],5:['A:ban','B:ban','A:pick','B:pick','A:pick','B:pick',':decider']}[bo]||[]).map(x=>{const [team,action]=x.split(':');return {team:first==='B'&&team?(team==='A'?'B':'A'):team,action,map:''};});
 const sdBPValid=m=>!!m&&m.bpBestOf===m?.bestOf&&(!m.bpTeams||JSON.stringify(m.bpTeams)===JSON.stringify([m.teamAId||'',m.teamBId||'']));
 const sdBPBase=m=>({bestOf:m.bestOf,bp:m.bp||[],bpFirstSide:m.bpFirstSide||'A',teamAId:m.teamAId,teamBId:m.teamBId});
 const sdBPInitial=m=>sdBPValid(m)&&Array.isArray(m.bp)?m.bp:sdBPTemplate(m.bestOf,m.bpFirstSide||'A');
@@ -19549,4 +19605,41 @@ function sdCustomEditor({state,commit,scene}){
  e.type==='text'&&h(l.Fragment,null,h('label',{className:'sf-field'},'文字内容',h(sdTextField,{key:e.id,as:'textarea','aria-label':'文字内容',rows:4,value:e.text,onChange:event=>patch(e.id,{text:event.target.value})})),field('字号','fontSize','number',{min:8,max:500}),field('字体','fontFamily'),field('文字颜色','color','color'),select('文字对齐','align',[['left','左对齐'],['center','居中'],['right','右对齐']]),check('粗体','bold')),
  ['image','video'].includes(e.type)&&h(l.Fragment,null,h(sdFlowInput,{key:e.id+'src',label:'素材地址',value:e.src,placeholder:'https://… 或导入本地文件',onChange:src=>{if(src&&!ScoreDeckPanels.source(src)){setError('素材地址须为 HTTP / HTTPS 地址或本地素材路径');return;}patch(e.id,{src});}}),select('填充方式','fit',[['contain','完整显示'],['cover','铺满裁剪'],['fill','拉伸填满']]),e.type==='video'&&h(l.Fragment,null,check('循环播放','loop'),check('静音','muted'),h('small',null,'编辑与预览始终静音；正式输出按此设置播放。'))),
  h('div',{className:'sf-actions'},h(sdFlowButton,{disabled:p.elements.at(-1)?.id===e.id,onClick:()=>reorder(1)},'上移一层'),h(sdFlowButton,{disabled:p.elements[0]?.id===e.id,onClick:()=>reorder(-1)},'下移一层'),h(sdFlowButton,{disabled:p.elements.length>=100,onClick:()=>{const id=sdCustomId();act(panel=>panel.elements.push({...e,id,name:e.name+' 副本',x:e.x+24,y:e.y+24}));setSelected(id);}},'复制元素'),h(sdFlowButton,{onClick:()=>{act(panel=>{panel.elements=panel.elements.filter(x=>x.id!==e.id);});setSelected('');}},'删除元素'))):h('p',null,'选择画布上的元素或图层以编辑属性。'))));
+}
+
+function sdWebSyncPanel(){
+ const h=l.createElement,[source,setSource]=l.useState('https://hushang985.online/'),[preview,setPreview]=l.useState(null),[pending,setPending]=l.useState(false),[message,setMessage]=l.useState(''),[status,setStatus]=l.useState(null),request=l.useRef(null);
+ l.useEffect(()=>{let alive=true,timer;const controller=new AbortController();async function poll(){try{const next=await SDClient.request('/api/web-sync',{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(5000)])});if(alive){setStatus(next);if(request.current&&next.job?.requestId===request.current){setMessage('');if(!next.busy)request.current=null;}}}catch{}if(alive)timer=setTimeout(poll,1000);}void poll();return()=>{alive=false;clearTimeout(timer);controller.abort();};},[]);
+ const active=status?.busy||pending;
+ const run=async action=>{
+  if(pending||status?.busy)return;
+  if(SDClient.pending||SDClient.failedDraft){setMessage('请先完成保存并处理未保存修改');return;}
+  setPending(true);setMessage('');let requestId;
+  try{
+   if(action==='preview'){
+    const result=await SDClient.request('/api/web-sync/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source})});setPreview(result);setMessage('预览已就绪，可以开始同步。');
+   }else{
+    requestId=request.current ||= typeof crypto.randomUUID==='function'?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2);
+    const body=JSON.stringify({source,token:preview?.token,requestId});let result;
+    // Retrying the same request attaches to the existing job if its reply was lost.
+    for(let attempt=0;attempt<3;attempt++){try{result=await SDClient.request('/api/web-sync/start',{method:'POST',headers:{'Content-Type':'application/json'},body,signal:AbortSignal.timeout(5000)});break;}catch(error){if(error.status||attempt===2)throw error;await new Promise(resolve=>setTimeout(resolve,500*(attempt+1)));}}
+    setStatus(result);setPreview(null);request.current=null;
+   }
+  }catch(error){if(requestId&&!error.status){request.current=requestId;setMessage('连接暂时中断，正在恢复同步进度…');}else{setMessage(error.message);request.current=null;}}finally{setPending(false);}
+ };
+ const job=status?.job,counts=(status?.busy?job?.counts:null)||preview?.counts||job?.counts||status?.counts,warnings=preview?.warnings||job?.warnings||status?.warnings||[];
+ const phaseMessage=job?.phase==='completed'?`同步完成。同步前备份：${job.result.backup}`:job?.phase==='failed'?job.error:status?.busy?({reading:'正在读取网站赛事…',downloading:'正在下载图片，短暂网络故障会自动重试；可以切换栏目，后台会继续同步。',saving:'图片已就绪，正在保存赛事…'}[job?.phase]||'正在读取网站预览…'):'';
+ const progress=status?.progress;
+ return h('section',{className:'panel sd-web-sync-panel'},
+  h('div',{className:'panel-heading'},h('h2',null,'网页赛事同步')),
+  h('div',{className:'sd-recovery-body'},
+   h('p',{className:'hint'},'点击一次即可读取网站完整赛事并将图片下载到本地。已下载的资源自动复用，短暂网络故障自动重试。重复同步更新同源记录，保留无关本地数据；网站删除的记录会保留在本地。'),
+   h('label',null,'赛事网站',h('input',{type:'url',value:source,disabled:active,onChange:e=>{setSource(e.target.value);setPreview(null);request.current=null;},style:{width:'100%'}})),
+   h('div',{className:'sync-actions'},h('button',{className:'button primary',disabled:active,onClick:()=>run('sync')},active?'同步处理中…':job?.phase==='failed'?'重试同步':'开始同步'),h('button',{className:'button secondary',disabled:active,onClick:()=>run('preview')},'仅预览网站数据')),
+   (preview?.name||job?.name)&&h('p',null,'网站赛事：'+(preview?.name||job.name)),
+   counts&&h('p',{className:'hint'},`${counts.teams} 支队伍 · ${counts.players} 位选手 · ${counts.matches} 场比赛 · ${counts.stages} 个赛段 · ${counts.sponsors} 个赞助商`),
+   ...warnings.map((x,i)=>h('p',{key:i,className:'hint'},x)),
+   status?.lastSync&&h('p',{className:'hint'},'上次同步：'+new Date(status.lastSync).toLocaleString()),
+   progress?.total>0&&h('p',{role:'status',className:'hint'},`素材处理：${progress.completed} / ${progress.total} · 复用 ${progress.reused} · 下载 ${progress.downloaded}${progress.retries?' · 自动重试 '+progress.retries+' 次':''}${progress.failed?' · 失败 '+progress.failed:''}`),
+   h('p',{role:'status',className:'hint'},message||phaseMessage)));
 }

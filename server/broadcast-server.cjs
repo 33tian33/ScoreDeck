@@ -134,7 +134,7 @@ function serveFile(request, response, filePath, cacheControl = "public, max-age=
   fs.createReadStream(filePath).pipe(response);
 }
 
-function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialCountdownPort = 17891, onPortChanged, selectRadarDirectory, selectIntegrationDirectory, integrationOptions, onFullImport, onDirectorWindow } = {}) {
+function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialCountdownPort = 17891, onPortChanged, selectRadarDirectory, selectIntegrationDirectory, integrationOptions, webSyncOptions, onFullImport, onDirectorWindow } = {}) {
   const resolvedWebRoot = path.resolve(webRoot || path.join(__dirname, "..", "dist"));
   const resolvedDataDir = path.resolve(dataDir || path.join(__dirname, "..", "data"));
   const fullPackage=require("./full-package.cjs");
@@ -144,6 +144,8 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
   const radar = require("./radar-service.cjs").createRadarService({ dataDir: resolvedDataDir });
   const setupRadar = require("./radar-setup.cjs").createSetup({ selectDirectory: selectRadarDirectory, port: radar.meta().gsiPort });
   const integrations=require("./integration-service.cjs").createIntegrationService({getState:()=>state,dataDir:resolvedDataDir,selectDirectory:selectIntegrationDirectory,...integrationOptions});
+  const nativeModules=require('./native-modules.cjs').createNativeModules(integrations);
+  const upgradeNative=(request,socket,head)=>{if(!nativeModules.upgrade(request,socket,head))socket.destroy();};
   let recoveryNotice="";
   const backupDir=path.join(resolvedDataDir,"backups");
   const backupList=()=>fs.existsSync(backupDir)?fs.readdirSync(backupDir).filter(n=>n.endsWith('.json')).sort().reverse():[];
@@ -156,6 +158,7 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
     recoveryNotice=storedState?"存档异常，已从最近备份恢复；原文件已保留。":"存档异常，原文件已保留。请导入同步包或恢复备份。";
   }
   let state = migrateState(storedState || createDefaultState());
+  const webSync=require('./web-sync.cjs').createWebSync({...webSyncOptions,dataDir:resolvedDataDir,getState:()=>state});
   if(state.liveScene==='halftime')state.liveScene='prematch';
   let settings = readJson(settingsFile, { port: Number(process.env.SCOREDECK_PORT) || initialPort, countdownPort: Number(process.env.SCOREDECK_COUNTDOWN_PORT) || initialCountdownPort });
   let currentPort = Number(process.env.SCOREDECK_PORT) || Number(settings.port) || initialPort;
@@ -278,7 +281,8 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
     if(request.method==='OPTIONS'){response.writeHead(204,{Allow:'GET,POST,PUT,PATCH,OPTIONS'});return response.end();}
     if(['POST','PUT','PATCH','DELETE'].includes(request.method)&&request.headers['x-scoredeck-key']!==controlKey)return json(response,401,{error:"需要导播授权，请使用本机复制的远程控制链接。"});
     if((archiveBusy||restorePending)&&['POST','PUT','PATCH','DELETE'].includes(request.method))return json(response,409,{error:restorePending?'完整包已导入，请重启 ScoreDeck 后继续':'正在生成完整包，请稍候'});
-    const protectedWrite=['/api/state','/api/archive','/api/archive/export','/api/archive/import','/api/backups/restore','/api/handoff'].includes(url.pathname)&&['POST','PUT','PATCH'].includes(request.method);
+    if(nativeModules.handle(request,response))return;
+    const protectedWrite=['/api/web-sync/preview','/api/web-sync/sync','/api/web-sync/start','/api/state','/api/archive','/api/archive/export','/api/archive/import','/api/backups/restore','/api/handoff'].includes(url.pathname)&&['POST','PUT','PATCH'].includes(request.method);
     if(protectedWrite&&(request.headers['x-scoredeck-epoch']!==serverEpoch||request.headers['x-scoredeck-control-epoch']!==controlEpoch))return json(response,409,{error:'服务或导播授权已变化，请重新连接；旧操作未执行。',current:state});
     if(url.pathname==='/api/handoff'&&request.method==='POST'){
       if(!local)return json(response,403,{error:'请在主机上完成导播交接。'});
@@ -348,6 +352,13 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
       next.revision=Number(state.revision||0)+1;next.lastSavedAt=new Date().toISOString();
       snapshot(reason);atomicWrite(stateFile,next);state=next;broadcast('state',state);scheduleEntranceReturn();return state;
     };
+    if(url.pathname==='/api/web-sync'&&request.method==='GET')return json(response,200,webSync.status());
+    if(url.pathname==='/api/web-sync/start'&&request.method==='POST'){
+      try{const body=await collectBody(request,4096);assertWriter();const result=webSync.start(body,next=>{assertWriter();if(archiveBusy||restorePending)throw Error('归档或恢复状态已变化，请稍后重新同步');return persist(next,'web-sync');});return json(response,result.busy?202:200,result);}catch(error){return json(response,400,{error:error.message});}
+    }
+    if(['/api/web-sync/preview','/api/web-sync/sync'].includes(url.pathname)&&request.method==='POST'){
+      try{const body=await collectBody(request,4096);const result=url.pathname.endsWith('/preview')?await webSync.preview(body.source):await webSync.sync(body.token,next=>{assertWriter();if(archiveBusy||restorePending)throw Error('归档或恢复状态已变化，请稍后重新同步');return persist(next,'web-sync');});return json(response,200,result);}catch(error){return json(response,400,{error:error.message});}
+    }
     if(url.pathname==='/api/highlights'&&request.method==='GET')return json(response,200,halftimeSnapshot(url.searchParams.get('mode')));
     if(url.pathname==='/api/highlights/obs'&&request.method==='GET')return json(response,200,obsHighlights.meta());
     if(url.pathname==='/api/highlights/obs'&&request.method==='POST'){
@@ -553,6 +564,7 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
         if(requested===oldPort)return json(response,200,{port:oldPort});
         if(request.headers['x-scoredeck-key']!==controlKey)throw Error('导播授权已变化');
         replacement=http.createServer((req,res)=>handler(req,res).catch(error=>json(res,500,{error:error.message})));
+        replacement.on('upgrade',upgradeNative);
         await new Promise((resolve,reject)=>{replacement.once('error',reject);replacement.listen(requested,'0.0.0.0',()=>{replacement.removeListener('error',reject);resolve();});});
         if(request.headers['x-scoredeck-key']!==controlKey)throw Error('导播授权已变化');
         const nextSettings={...settings,port:countdown?currentPort:requested,countdownPort:countdown?requested:countdownPort};
@@ -605,6 +617,7 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
 
   server = http.createServer((request, response) => handler(request, response).catch((error) => json(response, 500, { error: error.message })));
   countdownServer = http.createServer((request, response) => handler(request, response).catch((error) => json(response, 500, { error: error.message })));
+  server.on('upgrade',upgradeNative);countdownServer.on('upgrade',upgradeNative);
   server.on("error", (error) => {
     if (error.code === "EADDRINUSE") console.error(`端口 ${currentPort} 已被占用。可设置 SCOREDECK_PORT 后重试。`);
     else console.error(error);
@@ -655,6 +668,7 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
       return meta();
     },
     async close() {
+      nativeModules.close();
       automation.close();
       if(obsHighlights.ownsScene())await automation.hide('shutdown').catch(()=>{});
       await obsHighlights.end(null,'shutdown').catch(()=>{});
@@ -663,6 +677,7 @@ function createBroadcastServer({ webRoot, dataDir, initialPort = 17890, initialC
       for (const client of clients) client.end();
       clients.clear();
       return Promise.all([
+        webSync.close(),
         integrations.close(),
         radar.close(),
         new Promise((resolve) => server.listening ? server.close(resolve) : resolve()),

@@ -32,6 +32,11 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
+## github.com/jezek/xgb v1.3.1 — BSD-style license
+
+Used by the Linux headless CS2 window guard. License, author and contributor
+notices are included in `third_party_licenses/github.com_jezek_xgb@v1.3.1/`.
+
 ## Go runtime and standard library — BSD-3-Clause
 
 Copyright (c) 2009 The Go Authors. All rights reserved.
@@ -77,3 +82,7 @@ Full dependency license texts are distributed in `third_party_licenses/`.
 - golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63 — [LICENSE](third_party_licenses/golang.org_x_exp@v0.0.0-20230817173708-d852ddb80c63/LICENSE)
 - github.com/markus-wa/go-unassert v0.1.3 — [LICENSE.md](third_party_licenses/github.com_markus-wa_go-unassert@v0.1.3/LICENSE.md)
 - github.com/markus-wa/godispatch v1.4.1 — [LICENSE.md](third_party_licenses/github.com_markus-wa_godispatch@v1.4.1/LICENSE.md)
+
+## User-supplied Astra Default HUD
+
+The bundled `internal/replay/web/astra` assets originate from the user's `astra-default.zip`, whose `hud.json` identifies Astra Default HUD 1.0.0, author Hyun-05. The original visual assets and attribution are preserved. Replay replaces the external data connection with its read-only GSI bridge. No separate upstream license file was included in the supplied package; this notice does not assign Replay's license to these assets.

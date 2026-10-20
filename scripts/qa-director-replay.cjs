@@ -52,7 +52,7 @@ const free=()=>new Promise(resolve=>{const s=net.createServer().listen(0,'127.0.
   for(const [width,height] of [[800,160],[1100,180],[1920,260]]){
    await page.setViewportSize({width,height});
    const boxes=await page.evaluate(()=>Object.fromEntries(['.game','.replay-panel','.voice','.replay-preview','.replay-rates'].map(sel=>{const r=document.querySelector(sel).getBoundingClientRect();return [sel,{x:r.x,y:r.y,w:r.width,h:r.height,bottom:r.bottom}];})));
-   assert.ok(Math.abs(boxes['.replay-panel'].x+boxes['.replay-panel'].w/2-width/2)<2,'Replay centered');
+   assert.ok(Math.abs(boxes['.game'].x+boxes['.game'].w-boxes['.replay-panel'].x)<2&&Math.abs(boxes['.replay-panel'].x+boxes['.replay-panel'].w-boxes['.voice'].x)<2,'Replay fits between game controls and voice lanes');
    assert.ok(boxes['.replay-preview'].h>30&&boxes['.replay-rates'].bottom<=height,'preview and rates visible');
    await page.screenshot({path:path.join(root,`verification/director-replay-${width}.png`)});
   }
