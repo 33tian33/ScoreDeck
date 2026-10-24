@@ -1,8 +1,8 @@
 {
   "name": "scoredeck-cs-broadcast",
-  "version": "2.19.3",
+  "version": "2.19.4",
   "private": true,
-  "description": "ScoreDeck CS 2.19.3 — Replay 0.2.11 and one-click tournament sync",
+  "description": "ScoreDeck CS 2.19.4 — Replay 0.2.11 and one-click tournament sync",
   "main": "desktop/main.cjs",
   "type": "module",
   "dependencies": {},

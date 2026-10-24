@@ -19,8 +19,8 @@ function sdWebSyncPanel(){
   }catch(error){if(requestId&&!error.status){request.current=requestId;setMessage('连接暂时中断，正在恢复同步进度…');}else{setMessage(error.message);request.current=null;}}finally{setPending(false);}
  };
  const job=status?.job,counts=(status?.busy?job?.counts:null)||preview?.counts||job?.counts||status?.counts,warnings=preview?.warnings||job?.warnings||status?.warnings||[];
- const phaseMessage=job?.phase==='completed'?`同步完成。同步前备份：${job.result.backup}`:job?.phase==='failed'?job.error:status?.busy?({reading:'正在读取网站赛事…',downloading:'正在下载图片，短暂网络故障会自动重试；可以切换栏目，后台会继续同步。',saving:'图片已就绪，正在保存赛事…'}[job?.phase]||'正在读取网站预览…'):'';
- const progress=status?.progress;
+ const phaseMessage=job?.phase==='completed'?`同步完成。同步前备份：${job.result.backup}`:job?.phase==='failed'?job.error:status?.busy?({reading:'正在读取网站赛事…',downloading:'正在并行下载图片（最多 8 路），单次请求超时为 3 分 30 秒，短暂网络故障会自动重试；可以切换栏目，后台会继续同步。',saving:'图片已就绪，正在保存赛事…'}[job?.phase]||'正在读取网站预览…'):'';
+ const progress=status?.progress,processed=(progress?.completed||0)+(progress?.failed||0),percent=progress?.total?Math.floor(processed/progress.total*100):0;
  return h('section',{className:'panel sd-web-sync-panel'},
   h('div',{className:'panel-heading'},h('h2',null,'网页赛事同步')),
   h('div',{className:'sd-recovery-body'},
@@ -31,6 +31,7 @@ function sdWebSyncPanel(){
    counts&&h('p',{className:'hint'},`${counts.teams} 支队伍 · ${counts.players} 位选手 · ${counts.matches} 场比赛 · ${counts.stages} 个赛段 · ${counts.sponsors} 个赞助商`),
    ...warnings.map((x,i)=>h('p',{key:i,className:'hint'},x)),
    status?.lastSync&&h('p',{className:'hint'},'上次同步：'+new Date(status.lastSync).toLocaleString()),
-   progress?.total>0&&h('p',{role:'status',className:'hint'},`素材处理：${progress.completed} / ${progress.total} · 复用 ${progress.reused} · 下载 ${progress.downloaded}${progress.retries?' · 自动重试 '+progress.retries+' 次':''}${progress.failed?' · 失败 '+progress.failed:''}`),
+   progress?.total>0&&h('progress',{'aria-label':'素材处理进度',max:progress.total,value:processed,style:{width:'100%'}}),
+   progress?.total>0&&h('p',{role:'status',className:'hint'},`素材处理：${processed} / ${progress.total}（${percent}%） · 正在处理 ${progress.active||0} · 复用 ${progress.reused} · 下载 ${progress.downloaded}${progress.retries?' · 自动重试 '+progress.retries+' 次':''}${progress.failed?' · 失败 '+progress.failed:''}`),
    h('p',{role:'status',className:'hint'},message||phaseMessage)));
 }

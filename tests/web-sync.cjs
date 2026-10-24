@@ -40,9 +40,10 @@ test('one start automatically previews, retries temporary failures, deduplicates
  try{
   const commit=next=>{commits++;state=next;return state;},first=service.start({requestId:'click-once'},commit);
   assert.equal(first.busy,true);assert.equal(service.start({requestId:'double-click'},commit).job.id,first.job.id);
-  await until(()=>service.status().progress.total>0);
+  await until(()=>service.status().progress.active===4);
+  assert.equal(service.status().progress.completed,0);
   state.revision++;state.theme.custom='kept';state.teams[0].name='保留本地队伍';state.selectedMatchId='local-selection';release();
-  await until(()=>!service.status().busy);const status=service.status();assert.equal(status.job.phase,'completed',status.lastError);assert.equal(commits,1);assert.equal(reads,2);assert.equal(status.progress.retries,9);assert.equal(status.progress.completed,4);
+  await until(()=>!service.status().busy);const status=service.status();assert.equal(status.job.phase,'completed',status.lastError);assert.equal(commits,1);assert.equal(reads,2);assert.equal(status.progress.retries,9);assert.equal(status.progress.completed,4);assert.equal(status.progress.active,0);
   assert.equal(state.theme.custom,'kept');assert.equal(state.teams[0].name,'保留本地队伍');assert.equal(state.selectedMatchId,'local-selection');
   assert.equal(service.start({requestId:'click-once'},commit).job.phase,'completed');assert.equal(commits,1);assert.equal(reads,2);
  }finally{release();await service.close();fs.rmSync(dir,{recursive:true,force:true});}
@@ -79,11 +80,12 @@ test('closing the service cancels background downloads without committing later'
  finally{await service.close();fs.rmSync(dir,{recursive:true,force:true});}
 });
 
-test('a progressing image body may outlast the metadata deadline without restarting its download',async()=>{
+test('image headers and body may outlast the metadata deadline without restarting the download',async()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'sd-sync-stream-'));let state=createDefaultState(),downloads=0;
  const raw=sample();raw.schools[0].emblem=raw.teams[0].logo=raw.players[0].avatar=raw.sponsors[0].image='/slow.png';
  const service=createWebSync({dataDir:dir,getState:()=>state,requestTimeoutMs:20,imageTimeoutMs:500,fetchImpl:async(url,options)=>{
   if(url.endsWith('/api/state'))return new Response(JSON.stringify(raw));downloads++;
+  await new Promise((resolve,reject)=>{const abort=()=>{clearTimeout(timer);reject(options.signal.reason);};const timer=setTimeout(()=>{options.signal.removeEventListener('abort',abort);resolve();},50);options.signal.addEventListener('abort',abort,{once:true});});
   return new Response(new ReadableStream({start(controller){let offset=0;const abort=()=>{clearInterval(timer);controller.error(options.signal.reason);};const timer=setInterval(()=>{controller.enqueue(png.subarray(offset,offset+8));offset+=8;if(offset>=png.length){clearInterval(timer);options.signal.removeEventListener('abort',abort);controller.close();}},10);options.signal.addEventListener('abort',abort,{once:true});}}));
  }});
  try{service.start({requestId:'slow-body'},next=>state=next);await until(()=>!service.status().busy);assert.equal(service.status().job.phase,'completed',service.status().lastError);assert.equal(downloads,1);assert.equal(service.status().progress.retries,0);}
@@ -118,4 +120,12 @@ test('HTTP background sync responds before images finish, rejoins duplicates and
   let status;for(let i=0;i<100;i++){status=await fetch(base+'/api/web-sync').then(r=>r.json());if(!status.busy)break;await pause(10);}
   assert.equal(status.busy,false);assert.equal(status.job.phase,'failed');assert.match(status.job.error,/授权已变化/);assert.equal((await fetch(base+'/api/state').then(r=>r.json())).webSync,undefined);
  }finally{release();await app.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+ test('metadata and image requests default to a 3.5 minute deadline',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'sd-sync-timeout-'));let state=createDefaultState();const deadlines=[];
+ const original=AbortSignal.timeout.bind(AbortSignal);t.mock.method(AbortSignal,'timeout',ms=>{deadlines.push(ms);return original(ms);});
+ const service=createWebSync({dataDir:dir,getState:()=>state,fetchImpl:async url=>new Response(url.endsWith('/api/state')?JSON.stringify(sample()):png)});
+ try{const preview=await service.preview();await service.sync(preview.token,next=>state=next);assert.equal(deadlines.length,5);assert.ok(deadlines.every(ms=>ms===210000));}
+ finally{await service.close();fs.rmSync(dir,{recursive:true,force:true});}
 });

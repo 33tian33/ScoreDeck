@@ -1,6 +1,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const ORIGIN='https://hushang985.online';
+const SYNC_TIMEOUT_MS=210000,DOWNLOAD_CONCURRENCY=8;
 const clone=x=>structuredClone(x),hash=x=>crypto.createHash('sha256').update(x).digest('hex');
 const list=(x,label)=>{if(!Array.isArray(x))throw Error(`网站数据缺少 ${label} 数组`);return x;};
 const parsed=x=>typeof x==='string'?JSON.parse(x):x;
@@ -67,23 +68,22 @@ function publicIP(address){if(address.includes(':'))return !/^(::|fc|fd|fe[89ab]
 async function externalImage(url,redirects=0,headers={},signal){
  const u=new URL(url);if(u.protocol!=='https:'||u.username||u.password||u.port&&u.port!=='443')throw Error('网站图片必须使用公开 HTTPS 地址');
  const addresses=await require('node:dns').promises.lookup(u.hostname,{all:true});if(!addresses.length||addresses.some(x=>!publicIP(x.address)))throw Error('网站图片指向非公开网络地址');
- const selected=addresses[0];return new Promise((resolve,reject)=>{const req=require('node:https').get(u,{headers,signal,lookup:(host,options,cb)=>options.all?cb(null,[selected]):cb(null,selected.address,selected.family),timeout:30000},res=>{
+ const selected=addresses[0];return new Promise((resolve,reject)=>{const req=require('node:https').get(u,{headers,signal,lookup:(host,options,cb)=>options.all?cb(null,[selected]):cb(null,selected.address,selected.family),timeout:SYNC_TIMEOUT_MS},res=>{
   if([301,302,303,307,308].includes(res.statusCode)){res.resume();if(redirects>=3)return reject(Error('网站图片重定向过多'));return externalImage(new URL(res.headers.location,u).href,redirects+1,headers,signal).then(resolve,reject);}
   if(res.statusCode===304){res.resume();return resolve({notModified:true});}if(res.statusCode!==200){res.resume();return reject(requestError(res.statusCode,res.headers['retry-after']));}let size=0;const chunks=[];res.on('data',chunk=>{size+=chunk.length;if(size>8*1024*1024){res.destroy();reject(Error('网站图片超过8MB'));}else chunks.push(chunk);});res.on('end',()=>resolve({bytes:Buffer.concat(chunks),etag:res.headers.etag,lastModified:res.headers['last-modified']}));res.on('error',reject);
  });req.on('timeout',()=>req.destroy(Error('网站图片下载超时')));req.on('error',reject);});
 }
 function imageExtension(bytes,fallback){if(bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))return 'png';if(bytes[0]===255&&bytes[1]===216&&bytes[2]===255)return 'jpg';if(bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP')return 'webp';if(bytes.toString('ascii',0,3)==='GIF')return 'gif';throw Error('网站返回的图片内容无效');}
-function createWebSync({dataDir,getState,fetchImpl=fetch,retryDelay=attempt=>500*2**attempt,requestTimeoutMs=30000,imageTimeoutMs=120000}){
+function createWebSync({dataDir,getState,fetchImpl=fetch,retryDelay=attempt=>500*2**attempt,requestTimeoutMs=SYNC_TIMEOUT_MS,imageTimeoutMs=SYNC_TIMEOUT_MS}){
  let busy=false,preview=null,lastError='',job=null,task=null,closed=false,imageOrigin=ORIGIN;
- const emptyProgress=()=>({completed:0,total:0,reused:0,downloaded:0,retries:0,failed:0});
+ const emptyProgress=()=>({completed:0,total:0,active:0,reused:0,downloaded:0,retries:0,failed:0});
  let progress=emptyProgress();
  const stop=new AbortController();
  const mediaCache=require('./web-media-cache.cjs').createMediaCache(dataDir);
  const sourceUrl=value=>{const url=new URL(value||ORIGIN);if(![ORIGIN,'https://www.hushang985.online'].includes(url.origin)||url.username||url.password)throw Error('当前同步仅允许 https://hushang985.online/');return ORIGIN;};
  async function retry(action){for(let attempt=0;;attempt++){stop.signal.throwIfAborted();try{return await action();}catch(error){const temporary=error.retryable||['TypeError','TimeoutError'].includes(error.name)||/^(ECONNRESET|ETIMEDOUT|EAI_AGAIN|ECONNREFUSED|UND_ERR_)/.test(error.code||error.cause?.code||'');if(stop.signal.aborted||!temporary||attempt>=2)throw error;progress.retries++;await require('node:timers/promises').setTimeout(Math.max(retryDelay(attempt),error.retryAfter||0),undefined,{signal:stop.signal});}}}
  const responseFor=async(url,headers={},depth=0,timeoutMs=requestTimeoutMs)=>{
-  const waiting=new AbortController(),timer=setTimeout(()=>waiting.abort(new DOMException('网站响应超时','TimeoutError')),requestTimeoutMs);let response;
-  try{response=await fetchImpl(url,{redirect:'manual',signal:AbortSignal.any([stop.signal,waiting.signal,AbortSignal.timeout(timeoutMs)]),headers:{Accept:'application/json,image/*',...headers}});}finally{clearTimeout(timer);}
+  const response=await fetchImpl(url,{redirect:'manual',signal:AbortSignal.any([stop.signal,AbortSignal.timeout(timeoutMs)]),headers:{Accept:'application/json,image/*',...headers}});
   if([301,302,303,307,308].includes(response.status)){if(depth>=3)throw Error('网站重定向过多');const target=new URL(response.headers.get('location'),url);sourceUrl(target.href);await response.body?.cancel();return responseFor(target.href,headers,depth+1,timeoutMs);}
   if(response.ok&&new URL(url).pathname==='/api/state')imageOrigin=new URL(url).origin;
   return response;
@@ -96,13 +96,13 @@ function createWebSync({dataDir,getState,fetchImpl=fetch,retryDelay=attempt=>500
   function collect(value){for(const [k,v]of Object.entries(value||{})){if(v&&typeof v==='object')collect(v);else if(typeof v==='string'&&v&&(['logo','avatar','image','emblem'].includes(k)||/^\/media\//.test(v)||/\.(png|jpe?g|webp|gif)(?:[?#]|$)/i.test(v))){let url=v.startsWith('data:image/')?v:new URL(v,source).href;if(!url.startsWith('data:')){const u=new URL(url);if(u.hostname==='www.hushang985.online')u.hostname='hushang985.online';u.hash='';if(u.origin===ORIGIN&&/^\/media\/[a-f0-9]{64}\.(png|jpg|webp)$/.test(u.pathname))u.search='';url=u.href;}if(!jobs.has(url))jobs.set(url,[]);jobs.get(url).push([value,k]);}}}
   function saveImage(bytes,ext){if(bytes.length>8*1024*1024)throw Error('网站图片超过8MB');ext=imageExtension(bytes,ext.toLowerCase());const name='web-'+hash(bytes)+'.'+ext,dir=path.join(dataDir,'media');fs.mkdirSync(dir,{recursive:true});if(!fs.existsSync(path.join(dir,name))||hash(fs.readFileSync(path.join(dir,name)))!==hash(bytes))fs.writeFileSync(path.join(dir,name),bytes);return '/media/'+name;}
   collect(copy);const queue=[...jobs];progress={...emptyProgress(),retries:progress.retries,total:queue.length};let cursor=0;const failures=[];
-  async function worker(){while(cursor<queue.length&&!stop.signal.aborted){const [url,refs]=queue[cursor++];try{let local;if(url.startsWith('data:image/')){if(!/^data:image\/(png|jpeg|webp);base64,[a-zA-Z0-9+/=\s]+$/.test(url))throw Error('网站内嵌图片格式无效');local=saveImage(Buffer.from(url.split(',')[1],'base64'),url.slice(11,url.indexOf(';')));}
+  async function worker(){while(cursor<queue.length&&!stop.signal.aborted){const [url,refs]=queue[cursor++];progress.active++;try{let local;if(url.startsWith('data:image/')){if(!/^data:image\/(png|jpeg|webp);base64,[a-zA-Z0-9+/=\s]+$/.test(url))throw Error('网站内嵌图片格式无效');local=saveImage(Buffer.from(url.split(',')[1],'base64'),url.slice(11,url.indexOf(';')));}
    else{const cached=mediaCache.lookup(url);if(cached?.immutable){local=cached.local;progress.reused++;}
     else{const headers={};if(cached?.etag)headers['If-None-Match']=cached.etag;if(cached?.lastModified)headers['If-Modified-Since']=cached.lastModified;
      const result=await imageGet(url,headers);if(result.notModified){if(!cached)throw Error('网站返回304但本地素材不存在');local=cached.local;progress.reused++;}
      else{local=saveImage(result.bytes,path.extname(new URL(url).pathname).slice(1));mediaCache.remember(url,{local,etag:result.etag||'',lastModified:result.lastModified||''});progress.downloaded++;}}
-   }for(const [value,k]of refs)value[k]=local;progress.completed++;if(progress.completed%8===0)await mediaCache.flush();}catch(e){progress.failed++;failures.push('素材下载失败（'+(url.startsWith('data:')?'内嵌图片':new URL(url).pathname)+'）：'+e.message);}}}
-  await Promise.all(Array.from({length:Math.min(8,queue.length)},worker));await mediaCache.flush();stop.signal.throwIfAborted();if(failures.length)throw Error(`${failures.length} 张素材处理失败，已下载资源已保存；${failures[0]}`);
+   }for(const [value,k]of refs)value[k]=local;progress.completed++;if(progress.completed%8===0)await mediaCache.flush();}catch(e){progress.failed++;failures.push('素材下载失败（'+(url.startsWith('data:')?'内嵌图片':new URL(url).pathname)+'）：'+e.message);}finally{progress.active--;}}}
+  await Promise.all(Array.from({length:Math.min(DOWNLOAD_CONCURRENCY,queue.length)},worker));await mediaCache.flush();stop.signal.throwIfAborted();if(failures.length)throw Error(`${failures.length} 张素材处理失败，已下载资源已保存；${failures[0]}`);
   // The upstream Fudan PNG is a brand-guidelines sheet, not an individual badge.
   // Match its exact content so a future corrected upstream emblem takes precedence.
   for(const school of copy.schools||[])if(school.name==='复旦大学'&&school.emblem==='/media/web-40ab9481e3aa7a39da83430849ee2b7e1d8c6e59f2f1f7c37a942a36cfaa3d5d.png')school.emblem=saveImage(fs.readFileSync(path.join(__dirname,'assets/fudan-emblem.png')),'png');
